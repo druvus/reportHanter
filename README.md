@@ -62,11 +62,13 @@ After installation, you can run ReportHanter from the command line. For example:
 
 ## Example Report
 
-After running the command, ReportHanter will generate an interactive HTML report (e.g., results.html). Open this file in your web browser to explore sections on:
-	•	Alignment and Read Statistics: Includes BWA flagstat, FASTP summary, and more.
-	•	Raw Classification: Interactive plots for Kraken and Kaiju classifications.
-	•	Contig Classification: BLASTN results and contig information.
-	•	Alignment Coverage: Coverage plots derived from your BAM files.
+After running the command, ReportHanter will generate an interactive HTML report (e.g., `results.html`). Open this file in your web browser to explore sections on:
+- **Alignment and Read Statistics:** Includes BWA flagstat, FASTP summary, and more.
+- **Raw Classification:** Interactive plots for Kraken and Kaiju classifications.
+- **Contig Classification:** BLASTN results and contig information.
+- **Alignment Coverage:** Coverage plots derived from your BAM files.
+
+
 
 # Development
 
