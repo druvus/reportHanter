@@ -7,8 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from reporthanter.core.config import DefaultConfig
-from reporthanter.core.exceptions import ConfigurationError
+from reporthanter import DefaultConfig, ConfigurationError
 
 
 class TestDefaultConfig:

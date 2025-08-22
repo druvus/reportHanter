@@ -8,8 +8,7 @@ import pandas as pd
 import pytest
 
 from reporthanter.core.exceptions import DataProcessingError, FileValidationError
-from reporthanter.processors.kraken_processor import KrakenProcessor
-from reporthanter.processors.fastp_processor import FastpProcessor
+from reporthanter import KrakenProcessor, FastpProcessor
 
 
 class TestKrakenProcessor:

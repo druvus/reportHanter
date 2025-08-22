@@ -1,6 +1,6 @@
 # reporthanter/__init__.py
 
-# New refactored interfaces
+# Core interfaces and configuration
 from .core.config import DefaultConfig
 from .core.exceptions import (
     ReportHanterError,
@@ -10,23 +10,37 @@ from .core.exceptions import (
     ConfigurationError,
     ReportGenerationError
 )
+
+# Main report generator
 from .report.generator import ReportGenerator
 
-# Processors
+# Individual processors for advanced usage
 from .processors.kraken_processor import KrakenProcessor, KrakenPlotGenerator
 from .processors.kaiju_processor import KaijuProcessor, KaijuPlotGenerator  
 from .processors.blast_processor import BlastProcessor, BlastPlotGenerator
 from .processors.fastp_processor import FastpProcessor
 from .processors.flagstat_processor import FlagstatProcessor
 
-# Legacy compatibility (deprecated)
-from .file_utils import common_suffix, paired_reads
-from .fastx import fastx_file_to_df
-from .kraken import wrangle_kraken, kraken_df, plot_kraken
-from .blast import run_blastn, plot_blastn
-from .flagstat import parse_bwa_flagstat, plot_flagstat, alignment_stats
-from .fastp import parse_fastp_json, create_fastp_summary_table
-from .kaiju import plot_kaiju, kaiju_db_files
-from .panel_report import panel_report
+__version__ = "0.3.0"
 
-__version__ = "0.2.0"
+# Convenience function for backwards compatibility
+def create_report(blastn_file, kraken_file, kaiju_table, fastp_json, 
+                 flagstat_file, coverage_folder, secondary_flagstat_file=None,
+                 secondary_host=None, sample_name=None, config=None):
+    """
+    Convenience function that mimics the old panel_report API.
+    
+    This provides a smooth transition path for users upgrading from 0.2.x.
+    """
+    generator = ReportGenerator(config or DefaultConfig())
+    return generator.generate_report(
+        blastn_file=blastn_file,
+        kraken_file=kraken_file, 
+        kaiju_table=kaiju_table,
+        fastp_json=fastp_json,
+        flagstat_file=flagstat_file,
+        coverage_folder=coverage_folder,
+        secondary_flagstat_file=secondary_flagstat_file,
+        secondary_host=secondary_host,
+        sample_name=sample_name
+    )

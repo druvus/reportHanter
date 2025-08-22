@@ -2,9 +2,8 @@
 """
 panel_report_cli.py
 
-A standalone module to generate a Panel report using the panel_report function.
-This script parses command-line arguments, configures logging (to stdout by default),
-and calls the panel_report function from the reporthanter package.
+Modern CLI for generating interactive HTML reports from bioinformatics analysis files.
+Uses the new ReportGenerator architecture with robust error handling and configuration support.
 """
 
 import argparse

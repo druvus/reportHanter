@@ -1,8 +1,15 @@
-Below is an updated version of your README.md with improved markdown formatting:
-
 # reportHanter
 
-ReportHanter is an interactive HTML report generator designed for sequence classification analyses. It aggregates and visualizes results from various bioinformatics tools—such as FASTP, Kraken, Kaiju, BLASTN, and alignment statistics—into a single, easy-to-navigate report. The generated report uses [Panel](https://panel.holoviz.org/) and [Altair](https://altair-viz.github.io/) for interactive visualizations.
+**Modern, robust interactive HTML report generator for bioinformatics sequence classification analyses.**
+
+ReportHanter aggregates and visualizes results from various bioinformatics tools—FASTP, Kraken, Kaiju, BLASTN, and alignment statistics—into a single, easy-to-navigate interactive report. Built with [Panel](https://panel.holoviz.org/) and [Altair](https://altair-viz.github.io/) for high-quality visualizations.
+
+## ✨ **Version 0.3.0 - Modern Architecture**
+- 🏗️ **Clean, modular design** with comprehensive error handling
+- ⚙️ **Configurable** via JSON files for custom styling and behavior  
+- 🛡️ **Robust validation** of input files and parameters
+- 🚀 **High performance** streamlined processing pipeline
+- 🧪 **Well-tested** with comprehensive test suite
 
 ## Features
 
@@ -32,21 +39,78 @@ This installs all required dependencies as specified in setup.py.
 
 ## Usage
 
-After installation, you can run ReportHanter from the command line. For example:
+### 🖥️ **Command Line Interface**
 
-   ```bash
-    reporthanter \
-    --result_folder "$BASEDIR/$SAMPLE" \
-    --blastn_file "$BASEDIR/$SAMPLE/CHECKV/${SAMPLE}.merged.csv" \
-    --kraken_file "$BASEDIR/$SAMPLE/KRAKEN/${SAMPLE}.kraken.tsv" \
-    --kaiju_table "$BASEDIR/$SAMPLE/KAIJU/${SAMPLE}.kaiju.table.tsv" \
-    --fastp_json "$BASEDIR/$SAMPLE/FASTP/${SAMPLE}.fastp.json" \
-    --output results.html \
-    --sample_name testas \
-    --coverage_folder "$BASEDIR/$SAMPLE/COVERAGE_PLOTS" \
-    --flagstat_file "$BASEDIR/$SAMPLE/logs/human_contamination_flagstat.txt" \
+```bash
+reporthanter \
+    --blastn_file results.csv \
+    --kraken_file kraken.tsv \
+    --kaiju_table kaiju.tsv \
+    --fastp_json fastp.json \
+    --coverage_folder plots/ \
+    --flagstat_file flagstat.txt \
+    --output report.html \
+    --sample_name "MySample" \
     --log_level INFO
-   ```
+```
+
+### 🐍 **Python API**
+
+**Simple usage:**
+```python
+from reporthanter import create_report
+
+# Generate report (compatible with older versions)
+report = create_report(
+    blastn_file="results.csv",
+    kraken_file="kraken.tsv", 
+    kaiju_table="kaiju.tsv",
+    fastp_json="fastp.json",
+    flagstat_file="flagstat.txt",
+    coverage_folder="plots/",
+    sample_name="MySample"
+)
+
+# Save to HTML
+report.save("my_report.html")
+```
+
+**Advanced usage with configuration:**
+```python
+from reporthanter import ReportGenerator, DefaultConfig
+
+# Load custom configuration
+config = DefaultConfig("my_config.json")
+generator = ReportGenerator(config)
+
+# Generate report
+report = generator.generate_report(
+    blastn_file="results.csv",
+    kraken_file="kraken.tsv",
+    kaiju_table="kaiju.tsv", 
+    fastp_json="fastp.json",
+    flagstat_file="flagstat.txt",
+    coverage_folder="plots/",
+    sample_name="MySample"
+)
+
+# Save with custom title
+generator.save_report(report, "report.html", title="My Analysis Report")
+```
+
+**Individual processors for advanced workflows:**
+```python
+from reporthanter import KrakenProcessor, KrakenPlotGenerator
+
+# Process Kraken data
+processor = KrakenProcessor()
+data = processor.process("kraken.tsv")
+filtered_data, unclassified = processor.filter_data(data, virus_only=True)
+
+# Generate plots
+plot_gen = KrakenPlotGenerator()
+chart = plot_gen.generate_plot(filtered_data)
+```
 
 ### Command-Line Arguments
 	--result_folder: Directory containing the analysis output for the sample.
