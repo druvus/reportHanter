@@ -1,0 +1,29 @@
+{
+  "plotting": {
+    "width": "container",
+    "height": 450,
+    "color_scheme": "category20"
+  },
+  "filtering": {
+    "kraken": {
+      "level": "species",
+      "cutoff": 0.005,
+      "max_entries": 15,
+      "virus_only": true
+    },
+    "kaiju": {
+      "cutoff": 0.005,
+      "max_entries": 15
+    }
+  },
+  "report": {
+    "template": "fast",
+    "theme": "modern",
+    "header_color": "#2E8B57",
+    "header_bg_color": "#1C4E80"
+  },
+  "logging": {
+    "level": "DEBUG",
+    "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  }
+}
