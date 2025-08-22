@@ -8,7 +8,7 @@ with open(os.path.join(this_directory, "README.md"), encoding="utf-8") as fh:
 
 setuptools.setup(
     name="reporthanter",  
-    version="0.2.0",
+    version="0.3.0",
     author="Andreas Sjödin",
     author_email="andreas.sjodin@gmail.com",
     description="An interactive HTML report generator for sequence classification analyses.",
