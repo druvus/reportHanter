@@ -21,6 +21,19 @@ from .processors.blast_processor import BlastProcessor, BlastPlotGenerator
 from .processors.fastp_processor import FastpProcessor
 from .processors.flagstat_processor import FlagstatProcessor
 
+# Enhanced visualization system (new in 0.3.0+)
+try:
+    from .visualization import (
+        EnhancedReportGenerator,
+        VisualizationConfig, VisualizationConfigManager,
+        ChartType, ColorScheme, LayoutTemplate,
+        create_visualization_examples
+    )
+    _VISUALIZATION_AVAILABLE = True
+except ImportError:
+    # Graceful fallback if visualization dependencies not available
+    _VISUALIZATION_AVAILABLE = False
+
 __version__ = "0.3.0"
 
 # Convenience function for backwards compatibility
