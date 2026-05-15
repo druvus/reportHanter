@@ -1,16 +1,15 @@
 """
 Advanced layout engine for responsive and adaptive report layouts.
 """
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
+
 import panel as pn
-import altair as alt
-from pathlib import Path
 
 
 class ResponsiveLayoutEngine:
     """Creates responsive, adaptive layouts for bioinformatics reports."""
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self.breakpoints = {
             "small": 768,
@@ -19,7 +18,7 @@ class ResponsiveLayoutEngine:
             "xlarge": 1920
         }
     
-    def create_adaptive_grid(self, components: List[pn.pane.HTML], 
+    def create_adaptive_grid(self, components: list[pn.pane.HTML], 
                            grid_type: str = "auto") -> pn.GridBox:
         """Create adaptive grid layout based on content and screen size."""
         
@@ -45,7 +44,7 @@ class ResponsiveLayoutEngine:
         
         return pn.GridBox(*components, ncols=ncols, sizing_mode="stretch_both")
     
-    def create_tabbed_interface(self, sections: List[Tuple[str, pn.pane.HTML]],
+    def create_tabbed_interface(self, sections: list[tuple[str, pn.pane.HTML]],
                                tab_location: str = "above") -> pn.Tabs:
         """Create tabbed interface with enhanced styling."""
         tabs = pn.Tabs(
@@ -75,7 +74,7 @@ class ResponsiveLayoutEngine:
         
         return tabs
     
-    def create_collapsible_sections(self, sections: List[Tuple[str, pn.pane.HTML]]) -> pn.Accordion:
+    def create_collapsible_sections(self, sections: list[tuple[str, pn.pane.HTML]]) -> pn.Accordion:
         """Create collapsible accordion sections."""
         accordion = pn.Accordion(
             *sections,
@@ -180,7 +179,7 @@ class DashboardTemplates:
     """Pre-built dashboard templates for different use cases."""
     
     @staticmethod
-    def scientific_report_template(sections: Dict[str, pn.pane.HTML]) -> pn.Column:
+    def scientific_report_template(sections: dict[str, pn.pane.HTML]) -> pn.Column:
         """Template for scientific publication-style reports."""
         layout = ResponsiveLayoutEngine()
         
@@ -215,7 +214,7 @@ class DashboardTemplates:
         return pn.Column(header, grid, sizing_mode="stretch_both")
     
     @staticmethod
-    def executive_dashboard_template(sections: Dict[str, pn.pane.HTML]) -> pn.Column:
+    def executive_dashboard_template(sections: dict[str, pn.pane.HTML]) -> pn.Column:
         """Template for executive dashboard with key metrics."""
         layout = ResponsiveLayoutEngine()
         
@@ -232,7 +231,7 @@ class DashboardTemplates:
         return pn.Column(kpi_section, grid, sizing_mode="stretch_both")
     
     @staticmethod
-    def comparison_template(sections: Dict[str, pn.pane.HTML]) -> pn.Row:
+    def comparison_template(sections: dict[str, pn.pane.HTML]) -> pn.Row:
         """Template for side-by-side comparisons."""
         layout = ResponsiveLayoutEngine()
         
@@ -255,7 +254,7 @@ class DashboardTemplates:
         return pn.Row(left_column, right_column, sizing_mode="stretch_both")
     
     @staticmethod
-    def _create_kpi_section(sections: Dict[str, pn.pane.HTML]) -> pn.Row:
+    def _create_kpi_section(sections: dict[str, pn.pane.HTML]) -> pn.Row:
         """Create KPI summary section."""
         kpi_html = """
         <div style="
@@ -293,7 +292,7 @@ class InteractiveFeatures:
     """Add interactive features to reports."""
     
     @staticmethod
-    def add_filter_controls(data_columns: List[str]) -> pn.Column:
+    def add_filter_controls(data_columns: list[str]) -> pn.Column:
         """Create filter controls for data exploration."""
         filters = []
         

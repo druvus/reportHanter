@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test lint format clean docs
+.PHONY: help install install-dev test test-cov lint format format-check clean docs docs-clean build upload-test upload all-checks
 
 help:  ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -16,17 +16,17 @@ test:  ## Run tests
 test-cov:  ## Run tests with coverage report
 	pytest --cov=reporthanter --cov-report=html --cov-report=term
 
-lint:  ## Run linting (flake8, mypy)
-	flake8 reporthanter tests
+lint:  ## Run linting (ruff check + mypy)
+	ruff check reporthanter tests
 	mypy reporthanter
 
-format:  ## Format code (black, isort)
-	black reporthanter tests
-	isort reporthanter tests
+format:  ## Format code (ruff)
+	ruff check --fix reporthanter tests
+	ruff format reporthanter tests
 
 format-check:  ## Check code formatting without changing files
-	black --check reporthanter tests
-	isort --check-only reporthanter tests
+	ruff check reporthanter tests
+	ruff format --check reporthanter tests
 
 clean:  ## Clean build artifacts
 	rm -rf build/
@@ -53,5 +53,5 @@ upload:  ## Upload to PyPI
 
 all-checks:  ## Run all checks (format-check, lint, test)
 	$(MAKE) format-check
-	$(MAKE) lint  
+	$(MAKE) lint
 	$(MAKE) test

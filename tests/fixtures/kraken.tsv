@@ -1,0 +1,7 @@
+  60.00	6000	6000	U	0	unclassified
+  40.00	4000	0	R	1	root
+  35.00	3500	0	D	10239	  Viruses
+  30.00	3000	0	S	11260	    Influenza A virus
+   5.00	500	500	S	11250	    Norovirus
+   5.00	500	0	D	2	  Bacteria
+   3.00	300	300	S	562	    Escherichia coli

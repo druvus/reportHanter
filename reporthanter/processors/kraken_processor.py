@@ -1,12 +1,11 @@
 """
 Kraken data processor with improved error handling and configuration.
 """
-from typing import Any, Dict, Optional, Union, Tuple
 from pathlib import Path
-import pandas as pd
-import numpy as np
+
 import altair as alt
-import logging
+import numpy as np
+import pandas as pd
 
 from ..core.base import BaseDataProcessor, BasePlotGenerator
 from ..core.exceptions import DataProcessingError
@@ -25,7 +24,7 @@ class KrakenProcessor(BaseDataProcessor):
         "species": "S",
     }
     
-    def validate_input(self, file_path: Union[str, Path]) -> bool:
+    def validate_input(self, file_path: str | Path) -> bool:
         """Validate Kraken file format."""
         super().validate_input(file_path)
         
@@ -35,11 +34,11 @@ class KrakenProcessor(BaseDataProcessor):
             if test_df.shape[1] != 6:
                 raise DataProcessingError(f"Expected 6 columns in Kraken file, got {test_df.shape[1]}")
         except Exception as e:
-            raise DataProcessingError(f"Invalid Kraken file format: {e}")
+            raise DataProcessingError(f"Invalid Kraken file format: {e}") from e
         
         return True
     
-    def _process_file(self, file_path: Union[str, Path]) -> pd.DataFrame:
+    def _process_file(self, file_path: str | Path) -> pd.DataFrame:
         """Process Kraken TSV file into DataFrame."""
         df = pd.read_csv(
             file_path,
@@ -61,12 +60,12 @@ class KrakenProcessor(BaseDataProcessor):
             .assign(percent=lambda x: x.percent / 100)
         )
     
-    def filter_data(self, 
-                   data: pd.DataFrame, 
-                   level: str = "species", 
+    def filter_data(self,
+                   data: pd.DataFrame,
+                   level: str = "species",
                    cutoff: float = 0.01,
-                   max_entries: int = 10, 
-                   virus_only: bool = True) -> Tuple[pd.DataFrame, float]:
+                   max_entries: int = 10,
+                   virus_only: bool = True) -> tuple[pd.DataFrame, float]:
         """Filter Kraken data by taxonomy level and other criteria."""
         
         if level not in self.TAXONOMY_LEVELS:

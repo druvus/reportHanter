@@ -1,8 +1,9 @@
 """
 Advanced theming and color schemes for bioinformatics visualizations.
 """
+from typing import Any
+
 import altair as alt
-from typing import Dict, List, Optional, Any
 
 
 class BioinformaticsThemes:
@@ -31,7 +32,7 @@ class BioinformaticsThemes:
     }
 
     @staticmethod
-    def get_taxonomy_theme() -> Dict[str, Any]:
+    def get_taxonomy_theme() -> dict[str, Any]:
         """Get theme configuration for taxonomy visualizations."""
         return {
             "config": {
@@ -56,7 +57,7 @@ class BioinformaticsThemes:
         }
 
     @staticmethod
-    def get_quality_theme() -> Dict[str, Any]:
+    def get_quality_theme() -> dict[str, Any]:
         """Get theme for quality metrics visualizations."""
         return {
             "config": {
@@ -96,7 +97,7 @@ class InteractiveFeatures:
         return alt.selection_multi(name=name, fields=["category"])
     
     @staticmethod
-    def enhanced_tooltip(data_type: str = "taxonomy") -> List[alt.Tooltip]:
+    def enhanced_tooltip(data_type: str = "taxonomy") -> list[alt.Tooltip]:
         """Create enhanced tooltips based on data type."""
         tooltips = {
             "taxonomy": [
@@ -127,7 +128,7 @@ class ChartEnhancements:
     
     @staticmethod
     def create_enhanced_bar_chart(data, x_field: str, y_field: str, 
-                                color_field: Optional[str] = None,
+                                color_field: str | None = None,
                                 title: str = "",
                                 color_scheme: str = "category10") -> alt.Chart:
         """Create an enhanced bar chart with better styling."""
@@ -255,8 +256,8 @@ class StatisticalOverlays:
         return alt.layer(ci_band, chart)
     
     @staticmethod
-    def add_threshold_lines(chart: alt.Chart, thresholds: Dict[str, float],
-                          colors: Optional[Dict[str, str]] = None) -> alt.LayerChart:
+    def add_threshold_lines(chart: alt.Chart, thresholds: dict[str, float],
+                          colors: dict[str, str] | None = None) -> alt.LayerChart:
         """Add threshold reference lines."""
         layers = [chart]
         default_colors = {"warning": "orange", "critical": "red", "target": "green"}

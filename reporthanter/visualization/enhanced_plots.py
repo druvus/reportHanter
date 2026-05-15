@@ -1,19 +1,20 @@
 """
 Enhanced plot generators with advanced visualizations for bioinformatics data.
 """
-from typing import Any, Dict, Optional, List, Tuple
-import pandas as pd
+from typing import Any
+
 import altair as alt
 import numpy as np
+import pandas as pd
 
 from ..core.base import BasePlotGenerator
-from .themes import BioinformaticsThemes, InteractiveFeatures, ChartEnhancements, StatisticalOverlays
+from .themes import BioinformaticsThemes
 
 
 class EnhancedKrakenPlotGenerator(BasePlotGenerator):
     """Enhanced Kraken visualization with multiple chart types and interactivity."""
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         super().__init__(config)
         self.themes = BioinformaticsThemes()
     

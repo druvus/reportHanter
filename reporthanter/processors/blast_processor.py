@@ -1,13 +1,12 @@
 """
 BLAST data processor with improved error handling and configuration.
 """
-from typing import Any, Dict, Optional, Union
-from pathlib import Path
-import pandas as pd
-import altair as alt
 import subprocess
 import tempfile
-import logging
+from pathlib import Path
+
+import altair as alt
+import pandas as pd
 
 from ..core.base import BaseDataProcessor, BasePlotGenerator
 from ..core.exceptions import DataProcessingError
@@ -16,7 +15,7 @@ from ..core.exceptions import DataProcessingError
 class BlastProcessor(BaseDataProcessor):
     """Processes BLAST CSV files and runs BLASTN when needed."""
     
-    def validate_input(self, file_path: Union[str, Path]) -> bool:
+    def validate_input(self, file_path: str | Path) -> bool:
         """Validate BLAST CSV file format."""
         super().validate_input(file_path)
         
@@ -25,17 +24,17 @@ class BlastProcessor(BaseDataProcessor):
             test_df = pd.read_csv(file_path, nrows=5)
             self.logger.debug(f"BLAST CSV has {test_df.shape[1]} columns: {list(test_df.columns)}")
         except Exception as e:
-            raise DataProcessingError(f"Invalid BLAST CSV format: {e}")
+            raise DataProcessingError(f"Invalid BLAST CSV format: {e}") from e
         
         return True
     
-    def _process_file(self, file_path: Union[str, Path]) -> pd.DataFrame:
+    def _process_file(self, file_path: str | Path) -> pd.DataFrame:
         """Process BLAST CSV file into DataFrame."""
         return pd.read_csv(file_path)
     
-    def run_blastn(self, 
-                  contigs_file: Union[str, Path], 
-                  database: str, 
+    def run_blastn(self,
+                  contigs_file: str | Path,
+                  database: str,
                   threads: int = 4) -> pd.DataFrame:
         """Run BLASTN for contigs and return results DataFrame."""
         contigs_df = pd.read_csv(contigs_file)

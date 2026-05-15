@@ -1,28 +1,32 @@
 """
 Integration layer to connect enhanced visualizations with existing report system.
 """
-from typing import Any, Dict, Optional, Union
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 import panel as pn
 
 from ..core.config import DefaultConfig
-from ..processors.kraken_processor import KrakenProcessor
-from ..processors.kaiju_processor import KaijuProcessor
 from ..processors.blast_processor import BlastProcessor
 from ..processors.fastp_processor import FastpProcessor
 from ..processors.flagstat_processor import FlagstatProcessor
-
-from .enhanced_plots import EnhancedKrakenPlotGenerator, EnhancedQualityPlotGenerator, ResponsiveDashboard
-from .layout_engine import ResponsiveLayoutEngine, DashboardTemplates, InteractiveFeatures
-from .config import VisualizationConfigManager, VisualizationConfig
+from ..processors.kaiju_processor import KaijuProcessor
+from ..processors.kraken_processor import KrakenProcessor
+from .config import VisualizationConfig, VisualizationConfigManager
+from .enhanced_plots import (
+    EnhancedKrakenPlotGenerator,
+    EnhancedQualityPlotGenerator,
+    ResponsiveDashboard,
+)
+from .layout_engine import DashboardTemplates, InteractiveFeatures, ResponsiveLayoutEngine
 
 
 class EnhancedReportGenerator:
     """Enhanced report generator with advanced visualizations."""
     
-    def __init__(self, config: Optional[DefaultConfig] = None, 
-                 viz_config: Optional[Union[str, VisualizationConfig]] = None):
+    def __init__(self, config: DefaultConfig | None = None, 
+                 viz_config: str | VisualizationConfig | None = None):
         self.config = config or DefaultConfig()
         
         # Load visualization configuration
@@ -41,7 +45,7 @@ class EnhancedReportGenerator:
         self.processors = self._initialize_processors()
         self.plot_generators = self._initialize_plot_generators()
     
-    def _initialize_processors(self) -> Dict[str, Any]:
+    def _initialize_processors(self) -> dict[str, Any]:
         """Initialize data processors."""
         return {
             "kraken": KrakenProcessor(self.config.get_config('kraken')),
@@ -51,7 +55,7 @@ class EnhancedReportGenerator:
             "flagstat": FlagstatProcessor(self.config.get_config('flagstat'))
         }
     
-    def _initialize_plot_generators(self) -> Dict[str, Any]:
+    def _initialize_plot_generators(self) -> dict[str, Any]:
         """Initialize enhanced plot generators."""
         return {
             "kraken": EnhancedKrakenPlotGenerator(self.viz_config.kraken.to_dict()),
@@ -105,8 +109,8 @@ class EnhancedReportGenerator:
             # Default responsive layout
             return self._create_default_layout(sections)
     
-    def _create_enhanced_sections(self, processed_data: Dict[str, Any], 
-                                file_paths: Dict[str, str]) -> Dict[str, pn.pane.HTML]:
+    def _create_enhanced_sections(self, processed_data: dict[str, Any], 
+                                file_paths: dict[str, str]) -> dict[str, pn.pane.HTML]:
         """Create enhanced report sections with advanced visualizations."""
         sections = {}
         
@@ -183,7 +187,7 @@ class EnhancedReportGenerator:
         
         return sections
     
-    def _create_default_layout(self, sections: Dict[str, pn.pane.HTML]) -> pn.Column:
+    def _create_default_layout(self, sections: dict[str, pn.pane.HTML]) -> pn.Column:
         """Create default responsive layout."""
         # Convert sections to cards
         cards = []

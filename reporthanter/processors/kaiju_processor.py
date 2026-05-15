@@ -1,11 +1,11 @@
 """
 Kaiju data processor with improved error handling and configuration.
 """
-from typing import Any, Dict, Optional, Union, Tuple
-from pathlib import Path
-import pandas as pd
-import altair as alt
 import logging
+from pathlib import Path
+
+import altair as alt
+import pandas as pd
 
 from ..core.base import BaseDataProcessor, BasePlotGenerator
 from ..core.exceptions import DataProcessingError
@@ -14,7 +14,7 @@ from ..core.exceptions import DataProcessingError
 class KaijuProcessor(BaseDataProcessor):
     """Processes Kaiju TSV files into standardized DataFrames."""
     
-    def validate_input(self, file_path: Union[str, Path]) -> bool:
+    def validate_input(self, file_path: str | Path) -> bool:
         """Validate Kaiju file format."""
         super().validate_input(file_path)
         
@@ -26,19 +26,19 @@ class KaijuProcessor(BaseDataProcessor):
                 missing = required_columns - set(test_df.columns)
                 raise DataProcessingError(f"Missing required columns in Kaiju file: {missing}")
         except Exception as e:
-            raise DataProcessingError(f"Invalid Kaiju file format: {e}")
+            raise DataProcessingError(f"Invalid Kaiju file format: {e}") from e
         
         return True
     
-    def _process_file(self, file_path: Union[str, Path]) -> pd.DataFrame:
+    def _process_file(self, file_path: str | Path) -> pd.DataFrame:
         """Process Kaiju TSV file into DataFrame."""
         df = pd.read_csv(file_path, sep="\t")
         return df.assign(percent=lambda x: x.percent / 100)
     
-    def filter_data(self, 
-                   data: pd.DataFrame, 
-                   cutoff: float = 0.01, 
-                   max_entries: int = 10) -> Tuple[pd.DataFrame, float]:
+    def filter_data(self,
+                   data: pd.DataFrame,
+                   cutoff: float = 0.01,
+                   max_entries: int = 10) -> tuple[pd.DataFrame, float]:
         """Filter Kaiju data by cutoff and max entries."""
         
         # Get unclassified percentage
@@ -57,7 +57,7 @@ class KaijuProcessor(BaseDataProcessor):
         return filtered_df, unclassified_pct
     
     @staticmethod
-    def find_database_files(kaiju_db: Union[str, Path]) -> Tuple[str, str, str]:
+    def find_database_files(kaiju_db: str | Path) -> tuple[str, str, str]:
         """Find Kaiju database files (.fmi, names.dmp, nodes.dmp)."""
         logger = logging.getLogger(__name__)
         db_path = Path(kaiju_db)
@@ -87,7 +87,9 @@ class KaijuProcessor(BaseDataProcessor):
             return fmi_file, names_file, nodes_file
             
         except FileNotFoundError as e:
-            raise DataProcessingError(f"Required Kaiju database files not found in {kaiju_db}: {e}")
+            raise DataProcessingError(
+                f"Required Kaiju database files not found in {kaiju_db}: {e}"
+            ) from e
 
 
 class KaijuPlotGenerator(BasePlotGenerator):

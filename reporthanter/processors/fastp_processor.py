@@ -1,12 +1,12 @@
 """
 FastP data processor with improved error handling and configuration.
 """
-from typing import Any, Dict, Union
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any
+
 import pandas as pd
 import panel as pn
-import logging
 
 from ..core.base import BaseDataProcessor
 from ..core.exceptions import DataProcessingError
@@ -15,12 +15,12 @@ from ..core.exceptions import DataProcessingError
 class FastpProcessor(BaseDataProcessor):
     """Processes FastP JSON files into summary statistics."""
     
-    def validate_input(self, file_path: Union[str, Path]) -> bool:
+    def validate_input(self, file_path: str | Path) -> bool:
         """Validate FastP JSON file format."""
         super().validate_input(file_path)
         
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path) as f:
                 data = json.load(f)
             
             # Check for required sections
@@ -28,15 +28,15 @@ class FastpProcessor(BaseDataProcessor):
                 raise DataProcessingError("Missing 'summary' section in FastP JSON")
                 
         except json.JSONDecodeError as e:
-            raise DataProcessingError(f"Invalid JSON format: {e}")
+            raise DataProcessingError(f"Invalid JSON format: {e}") from e
         except Exception as e:
-            raise DataProcessingError(f"Error validating FastP JSON: {e}")
+            raise DataProcessingError(f"Error validating FastP JSON: {e}") from e
         
         return True
     
-    def _process_file(self, file_path: Union[str, Path]) -> pd.DataFrame:
+    def _process_file(self, file_path: str | Path) -> pd.DataFrame:
         """Process FastP JSON file into summary statistics."""
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             data = json.load(f)
         
         stats = self._extract_statistics(data)
@@ -44,7 +44,7 @@ class FastpProcessor(BaseDataProcessor):
         # Convert to DataFrame for consistency with other processors
         return pd.DataFrame(list(stats.items()), columns=["Metric", "Value"])
     
-    def _extract_statistics(self, data: Dict[str, Any]) -> Dict[str, str]:
+    def _extract_statistics(self, data: dict[str, Any]) -> dict[str, str]:
         """Extract summary statistics from FastP JSON data."""
         summary = data.get("summary", {})
         before = summary.get("before_filtering", {})

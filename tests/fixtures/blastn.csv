@@ -1,0 +1,4 @@
+name,sequence,read_len,sample_id,matches,match_name,accession,percent_identity,sequence_len
+contig_1,ACGT,4,sampleA,Virus A\tNC_000001\t99.5\t150,Virus A,NC_000001,99.5,150
+contig_2,TTTT,4,sampleA,Virus B\tNC_000002\t95.0\t300,Virus B,NC_000002,95.0,300
+contig_3,GGGG,4,sampleA,Virus A\tNC_000001\t97.0\t200,Virus A,NC_000001,97.0,200

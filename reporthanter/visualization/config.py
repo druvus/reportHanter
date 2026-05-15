@@ -1,11 +1,11 @@
 """
 Advanced configuration system for visual customization.
 """
-from typing import Any, Dict, List, Optional, Union
 import json
-from pathlib import Path
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 from ..core.exceptions import ConfigurationError
 
@@ -51,7 +51,7 @@ class PlotConfig:
     """Configuration for individual plots."""
     chart_type: ChartType = ChartType.BAR
     color_scheme: ColorScheme = ColorScheme.CATEGORY10
-    width: Union[int, str] = "container"
+    width: int | str = "container"
     height: int = 400
     opacity: float = 0.8
     show_legend: bool = True
@@ -59,7 +59,7 @@ class PlotConfig:
     animate: bool = False
     interactive: bool = True
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for Altair configuration."""
         return {
             "chart_type": self.chart_type.value,
@@ -85,7 +85,7 @@ class LayoutConfig:
     show_filters: bool = True
     show_export: bool = True
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
@@ -102,7 +102,7 @@ class ThemeConfig:
     border_radius: int = 4
     shadow: bool = True
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
@@ -132,7 +132,7 @@ class VisualizationConfig:
         if self.theme is None:
             self.theme = ThemeConfig()
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert entire config to dictionary."""
         return {
             "kraken": self.kraken.to_dict(),
@@ -144,7 +144,7 @@ class VisualizationConfig:
         }
     
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> 'VisualizationConfig':
+    def from_dict(cls, config_dict: dict[str, Any]) -> 'VisualizationConfig':
         """Create config from dictionary."""
         try:
             return cls(
@@ -198,7 +198,7 @@ class VisualizationConfigManager:
         )
     }
     
-    def __init__(self, config_file: Optional[Path] = None):
+    def __init__(self, config_file: Path | None = None):
         self.config_file = config_file
         self.config = self._load_config()
     
@@ -206,10 +206,10 @@ class VisualizationConfigManager:
         """Load configuration from file or use default."""
         if self.config_file and self.config_file.exists():
             try:
-                with open(self.config_file, 'r') as f:
+                with open(self.config_file) as f:
                     config_dict = json.load(f)
                 return VisualizationConfig.from_dict(config_dict.get("visualization", {}))
-            except (json.JSONDecodeError, IOError, KeyError) as e:
+            except (OSError, json.JSONDecodeError, KeyError) as e:
                 raise ConfigurationError(f"Failed to load visualization config: {e}")
         
         # Return default config
@@ -229,11 +229,11 @@ class VisualizationConfigManager:
             config_dict = {"visualization": config.to_dict()}
             with open(file_path, 'w') as f:
                 json.dump(config_dict, f, indent=2)
-        except IOError as e:
+        except OSError as e:
             raise ConfigurationError(f"Failed to save config to {file_path}: {e}")
     
     def create_custom_preset(self, name: str, base_preset: str = "scientific",
-                           overrides: Optional[Dict[str, Any]] = None) -> VisualizationConfig:
+                           overrides: dict[str, Any] | None = None) -> VisualizationConfig:
         """Create custom preset based on existing preset with overrides."""
         base_config = self.get_preset(base_preset)
         
@@ -245,7 +245,7 @@ class VisualizationConfigManager:
         
         return base_config
     
-    def _deep_update(self, base_dict: Dict[str, Any], update_dict: Dict[str, Any]) -> None:
+    def _deep_update(self, base_dict: dict[str, Any], update_dict: dict[str, Any]) -> None:
         """Recursively update nested dictionary."""
         for key, value in update_dict.items():
             if isinstance(value, dict) and key in base_dict and isinstance(base_dict[key], dict):
@@ -253,7 +253,7 @@ class VisualizationConfigManager:
             else:
                 base_dict[key] = value
     
-    def validate_config(self, config: VisualizationConfig) -> List[str]:
+    def validate_config(self, config: VisualizationConfig) -> list[str]:
         """Validate configuration and return list of issues."""
         issues = []
         

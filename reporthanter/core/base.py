@@ -1,23 +1,25 @@
 """
 Base classes with common functionality for reportHanter.
 """
-from typing import Any, Dict, Optional, Union
-from pathlib import Path
-import pandas as pd
-import altair as alt
 import logging
+from pathlib import Path
+from typing import Any
+
+import altair as alt
+import pandas as pd
+
+from .exceptions import DataProcessingError, FileValidationError, PlotGenerationError
 from .interfaces import DataProcessor, PlotGenerator
-from .exceptions import FileValidationError, DataProcessingError, PlotGenerationError
 
 
 class BaseDataProcessor(DataProcessor):
     """Base implementation for data processors with common functionality."""
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self.logger = logging.getLogger(self.__class__.__name__)
     
-    def validate_input(self, file_path: Union[str, Path]) -> bool:
+    def validate_input(self, file_path: str | Path) -> bool:
         """Validate that the input file exists and is readable."""
         path = Path(file_path)
         if not path.exists():
@@ -28,7 +30,7 @@ class BaseDataProcessor(DataProcessor):
             raise FileValidationError(f"File is empty: {file_path}")
         return True
     
-    def process(self, file_path: Union[str, Path]) -> pd.DataFrame:
+    def process(self, file_path: str | Path) -> pd.DataFrame:
         """Process the input file with error handling."""
         self.validate_input(file_path)
         try:
@@ -38,9 +40,9 @@ class BaseDataProcessor(DataProcessor):
             return result
         except Exception as e:
             self.logger.error(f"Failed to process file {file_path}: {e}")
-            raise DataProcessingError(f"Failed to process {file_path}: {e}")
+            raise DataProcessingError(f"Failed to process {file_path}: {e}") from e
     
-    def _process_file(self, file_path: Union[str, Path]) -> pd.DataFrame:
+    def _process_file(self, file_path: str | Path) -> pd.DataFrame:
         """Override this method in subclasses."""
         raise NotImplementedError("Subclasses must implement _process_file")
 
@@ -48,7 +50,7 @@ class BaseDataProcessor(DataProcessor):
 class BasePlotGenerator(PlotGenerator):
     """Base implementation for plot generators with common styling."""
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self.logger = logging.getLogger(self.__class__.__name__)
     
@@ -63,7 +65,7 @@ class BasePlotGenerator(PlotGenerator):
             
         except Exception as e:
             self.logger.error(f"Failed to generate plot: {e}")
-            raise PlotGenerationError(f"Failed to generate plot: {e}")
+            raise PlotGenerationError(f"Failed to generate plot: {e}") from e
     
     def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
         """Override this method in subclasses."""

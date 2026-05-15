@@ -10,15 +10,30 @@ This module provides advanced visualization capabilities including:
 - Configurable visual presets
 """
 
-from .themes import BioinformaticsThemes, InteractiveFeatures, ChartEnhancements, StatisticalOverlays
-from .enhanced_plots import EnhancedKrakenPlotGenerator, EnhancedQualityPlotGenerator, ResponsiveDashboard
-from .layout_engine import ResponsiveLayoutEngine, DashboardTemplates, InteractiveFeatures as LayoutInteractiveFeatures
 from .config import (
-    ChartType, ColorScheme, LayoutTemplate,
-    PlotConfig, LayoutConfig, ThemeConfig, VisualizationConfig,
-    VisualizationConfigManager
+    ChartType,
+    ColorScheme,
+    LayoutConfig,
+    LayoutTemplate,
+    PlotConfig,
+    ThemeConfig,
+    VisualizationConfig,
+    VisualizationConfigManager,
+)
+from .enhanced_plots import (
+    EnhancedKrakenPlotGenerator,
+    EnhancedQualityPlotGenerator,
+    ResponsiveDashboard,
 )
 from .integration import EnhancedReportGenerator, create_visualization_examples
+from .layout_engine import DashboardTemplates, ResponsiveLayoutEngine
+from .layout_engine import InteractiveFeatures as LayoutInteractiveFeatures
+from .themes import (
+    BioinformaticsThemes,
+    ChartEnhancements,
+    InteractiveFeatures,
+    StatisticalOverlays,
+)
 
 __all__ = [
     # Themes and styling

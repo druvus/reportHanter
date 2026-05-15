@@ -10,11 +10,11 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 from reporthanter.core.config import DefaultConfig
-from reporthanter.core.exceptions import ReportHanterError
+from reporthanter.core.exceptions import ConfigurationError, ReportHanterError
 from reporthanter.report.generator import ReportGenerator
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -194,10 +194,12 @@ def validate_inputs(args) -> None:
     if errors:
         for error in errors:
             logging.error(error)
-        raise ValueError(f"Input validation failed with {len(errors)} errors")
+        raise ConfigurationError(
+            f"Input validation failed with {len(errors)} errors"
+        )
 
 
-def setup_logging(log_level: str, config: Optional[DefaultConfig] = None) -> None:
+def setup_logging(log_level: str, config: DefaultConfig | None = None) -> None:
     """Setup logging with configuration."""
     log_config = config.get_config('logging') if config else {}
     log_format = log_config.get('format', "%(asctime)s [%(levelname)s] %(name)s: %(message)s")

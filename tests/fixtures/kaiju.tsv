@@ -1,0 +1,6 @@
+file	percent	reads	taxon_id	taxon_name
+kaiju.out	40.0	4000	0	unclassified
+kaiju.out	30.0	3000	10239	Viruses
+kaiju.out	15.0	1500	2	Bacteria
+kaiju.out	10.0	1000	2759	Eukaryota
+kaiju.out	0.001	1	999	BelowCutoff

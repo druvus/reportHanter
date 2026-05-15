@@ -2,22 +2,23 @@
 Core interfaces and abstract base classes for reportHanter.
 """
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
 from pathlib import Path
-import pandas as pd
+from typing import Any
+
 import altair as alt
+import pandas as pd
 
 
 class DataProcessor(ABC):
     """Abstract base class for all data processing modules."""
     
     @abstractmethod
-    def process(self, file_path: Union[str, Path]) -> pd.DataFrame:
+    def process(self, file_path: str | Path) -> pd.DataFrame:
         """Process the input file and return a standardized DataFrame."""
         pass
     
     @abstractmethod
-    def validate_input(self, file_path: Union[str, Path]) -> bool:
+    def validate_input(self, file_path: str | Path) -> bool:
         """Validate that the input file exists and has the expected format."""
         pass
 
@@ -50,7 +51,7 @@ class ConfigProvider(ABC):
     """Abstract base class for configuration providers."""
     
     @abstractmethod
-    def get_config(self, section: Optional[str] = None) -> Dict[str, Any]:
+    def get_config(self, section: str | None = None) -> dict[str, Any]:
         """Get configuration dictionary."""
         pass
     

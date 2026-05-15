@@ -1,25 +1,25 @@
 """
 Report sections with improved separation of concerns.
 """
-from typing import Any, Dict, List, Optional, Union
+import logging
 from pathlib import Path
+
 import pandas as pd
 import panel as pn
-import logging
 
-from ..core.interfaces import ReportSection
 from ..core.config import DefaultConfig
-from ..processors.kraken_processor import KrakenProcessor, KrakenPlotGenerator
-from ..processors.kaiju_processor import KaijuProcessor, KaijuPlotGenerator
-from ..processors.blast_processor import BlastProcessor, BlastPlotGenerator
+from ..core.interfaces import ReportSection
+from ..processors.blast_processor import BlastPlotGenerator, BlastProcessor
 from ..processors.fastp_processor import FastpProcessor
 from ..processors.flagstat_processor import FlagstatProcessor
+from ..processors.kaiju_processor import KaijuPlotGenerator, KaijuProcessor
+from ..processors.kraken_processor import KrakenPlotGenerator, KrakenProcessor
 
 
 class AlignmentStatsSection(ReportSection):
     """Report section for alignment statistics and read quality."""
     
-    def __init__(self, config: Optional[DefaultConfig] = None):
+    def __init__(self, config: DefaultConfig | None = None):
         self.config = config or DefaultConfig()
         self.logger = logging.getLogger(self.__class__.__name__)
     
@@ -96,7 +96,7 @@ class AlignmentStatsSection(ReportSection):
 class RawClassificationSection(ReportSection):
     """Report section for raw read classification (Kraken and Kaiju)."""
     
-    def __init__(self, config: Optional[DefaultConfig] = None):
+    def __init__(self, config: DefaultConfig | None = None):
         self.config = config or DefaultConfig()
         self.logger = logging.getLogger(self.__class__.__name__)
     
@@ -189,7 +189,7 @@ class RawClassificationSection(ReportSection):
 class ContigClassificationSection(ReportSection):
     """Report section for contig classification (BLAST)."""
     
-    def __init__(self, config: Optional[DefaultConfig] = None):
+    def __init__(self, config: DefaultConfig | None = None):
         self.config = config or DefaultConfig()
         self.logger = logging.getLogger(self.__class__.__name__)
     
@@ -264,7 +264,7 @@ class ContigClassificationSection(ReportSection):
 class CoverageSection(ReportSection):
     """Report section for alignment coverage plots."""
     
-    def __init__(self, config: Optional[DefaultConfig] = None):
+    def __init__(self, config: DefaultConfig | None = None):
         self.config = config or DefaultConfig()
         self.logger = logging.getLogger(self.__class__.__name__)
     
