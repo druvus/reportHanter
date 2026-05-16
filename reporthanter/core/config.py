@@ -23,7 +23,7 @@ class DefaultConfig(ConfigProvider):
         "filtering": {
             "kraken": {
                 "level": "species",
-                "cutoff": 0.01,
+                "cutoff": 0.001,
                 "max_entries": 10,
                 "virus_only": True
             },

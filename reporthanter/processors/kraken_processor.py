@@ -63,7 +63,7 @@ class KrakenProcessor(BaseDataProcessor):
     def filter_data(self,
                    data: pd.DataFrame,
                    level: str = "species",
-                   cutoff: float = 0.01,
+                   cutoff: float = 0.001,
                    max_entries: int = 10,
                    virus_only: bool = True) -> tuple[pd.DataFrame, float]:
         """Filter Kraken data by taxonomy level and other criteria."""
