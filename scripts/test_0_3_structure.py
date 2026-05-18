@@ -28,9 +28,9 @@ def test_file_structure():
         "reporthanter/report/sections.py",
         "reporthanter/report/generator.py",
         "reporthanter/panel_report_cli.py",
-        "setup.py",
+        "pyproject.toml",
         "CHANGELOG.md",
-        "UPGRADE_TO_0.3.0.md",
+        "docs/user-guide/UPGRADE_TO_0.3.0.md",
     ]
     
     # Files that should NOT exist (legacy)
@@ -123,23 +123,27 @@ def test_import_structure():
 def test_version_numbers():
     """Test that version numbers are updated."""
     print("\nTesting version numbers...")
-    
+
     results = {"pass": 0, "fail": 0, "errors": []}
-    
-    # Check setup.py version
-    setup_file = "setup.py"
-    if Path(setup_file).exists():
-        with open(setup_file, 'r') as f:
+
+    # Check pyproject.toml version
+    pyproject_file = "pyproject.toml"
+    if Path(pyproject_file).exists():
+        with open(pyproject_file, 'r') as f:
             content = f.read()
-        
-        if 'version="0.3.0"' in content:
-            print(f"✅ setup.py version updated to 0.3.0")
+
+        if 'version = "0.3.0"' in content:
+            print("✅ pyproject.toml version updated to 0.3.0")
             results["pass"] += 1
         else:
-            print(f"❌ setup.py version not updated")
+            print("❌ pyproject.toml version not updated")
             results["fail"] += 1
-            results["errors"].append("setup.py version not 0.3.0")
-    
+            results["errors"].append("pyproject.toml version not 0.3.0")
+    else:
+        print("❌ pyproject.toml not found")
+        results["fail"] += 1
+        results["errors"].append("pyproject.toml not found")
+
     # Check __init__.py version
     init_file = "reporthanter/__init__.py" 
     if Path(init_file).exists():
@@ -158,7 +162,11 @@ def test_version_numbers():
 
 def main():
     """Run all tests."""
-    os.chdir("/Users/andreassjodin/Code/reportHanter")
+    # Resolve the repository root relative to this script so the
+    # checks operate on the tree the script lives in, regardless of
+    # the caller's working directory.
+    repo_root = Path(__file__).resolve().parent.parent
+    os.chdir(repo_root)
     
     print("=" * 60)
     print("reportHanter 0.3.0 Structure Verification")

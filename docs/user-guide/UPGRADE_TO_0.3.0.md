@@ -1,111 +1,114 @@
-# 🚀 Upgrade Guide: Moving to reportHanter 0.3.0
+# Upgrading to reportHanter 0.3.0
 
-## ⚠️ **BREAKING CHANGES ALERT**
+Version 0.3.0 removes the 0.1.x-style free functions that were
+retained as deprecated wrappers in 0.2.x. Python callers must
+update their imports; the command-line interface is unchanged.
 
-Version 0.3.0 removes all legacy code to provide a cleaner, more maintainable architecture. **This requires code changes for Python API users.**
+## Summary of breaking changes
 
-## 📋 **What's Changed**
+The following names are no longer importable from `reporthanter`:
 
-### ❌ **Removed (Breaking Changes)**
-```python
-# These NO LONGER WORK in 0.3.0:
-from reporthanter import (
-    panel_report,           # ❌ REMOVED
-    plot_kraken,           # ❌ REMOVED  
-    plot_kaiju,            # ❌ REMOVED
-    parse_fastp_json,      # ❌ REMOVED
-    wrangle_kraken,        # ❌ REMOVED
-    kraken_df,            # ❌ REMOVED
-    # ... all other legacy functions
-)
+```
+panel_report
+plot_kraken          plot_kaiju          plot_blastn
+parse_fastp_json     create_fastp_summary_table
+wrangle_kraken       kraken_df
+kaiju_db_files
+parse_bwa_flagstat   plot_flagstat       alignment_stats
+run_blastn
+common_suffix        paired_reads
+fastx_file_to_df
 ```
 
-### ✅ **New API (Available)**
-```python
-# These are the NEW way to do things:
-from reporthanter import (
-    ReportGenerator,       # ✅ Main report generator
-    DefaultConfig,         # ✅ Configuration management
-    create_report,         # ✅ Convenience function
-    KrakenProcessor,       # ✅ Individual processors
-    # ... all new processors
-)
-```
+The replacements are:
 
-## 🔧 **Migration Steps**
+| Removed | Replacement |
+|---------|-------------|
+| `panel_report` | `create_report` (compatibility wrapper) or `ReportGenerator.generate_report` |
+| `plot_kraken`, `wrangle_kraken`, `kraken_df` | `KrakenProcessor` plus `KrakenPlotGenerator` |
+| `plot_kaiju`, `kaiju_db_files` | `KaijuProcessor` plus `KaijuPlotGenerator` |
+| `plot_blastn`, `run_blastn` | `BlastProcessor` plus `BlastPlotGenerator` |
+| `parse_fastp_json`, `create_fastp_summary_table` | `FastpProcessor` |
+| `parse_bwa_flagstat`, `plot_flagstat`, `alignment_stats` | `FlagstatProcessor` |
 
-### **Step 1: CLI Users (No Changes Needed!)**
+## Command-line users
+
+No changes. The `reporthanter` CLI accepts the same flags as in
+0.2.x:
+
 ```bash
-# ✅ CLI commands work EXACTLY the same:
 reporthanter \
-  --blastn_file results.csv \
-  --kraken_file kraken.tsv \
-  --kaiju_table kaiju.tsv \
-  --fastp_json fastp.json \
-  --flagstat_file flagstat.txt \
-  --coverage_folder plots/ \
-  --output report.html \
-  --sample_name "Sample1"
+    --blastn_file    results.csv \
+    --kraken_file    kraken.tsv \
+    --kaiju_table    kaiju.tsv \
+    --fastp_json     fastp.json \
+    --flagstat_file  flagstat.txt \
+    --coverage_folder plots/ \
+    --output         report.html \
+    --sample_name    "Sample1"
 ```
 
-**CLI users can upgrade immediately with zero code changes!**
+## Python API: minimal migration
 
-### **Step 2: Python API Users (Simple Migration)**
+`create_report` is a wrapper with the same call signature as the
+removed `panel_report`. The smallest possible patch is to swap the
+import:
 
-#### **Option A: Quick Fix with `create_report()`**
 ```python
-# OLD CODE (0.2.x):
+# 0.2.x
 from reporthanter import panel_report
 report = panel_report(
     blastn_file="results.csv",
-    kraken_file="kraken.tsv", 
+    kraken_file="kraken.tsv",
     kaiju_table="kaiju.tsv",
     fastp_json="fastp.json",
     flagstat_file="flagstat.txt",
     coverage_folder="plots/",
-    sample_name="Test"
+    sample_name="Test",
 )
 
-# NEW CODE (0.3.x) - Quick fix:
+# 0.3.x
 from reporthanter import create_report
 report = create_report(
     blastn_file="results.csv",
-    kraken_file="kraken.tsv", 
+    kraken_file="kraken.tsv",
     kaiju_table="kaiju.tsv",
     fastp_json="fastp.json",
     flagstat_file="flagstat.txt",
     coverage_folder="plots/",
-    sample_name="Test"
+    sample_name="Test",
 )
 ```
 
-#### **Option B: Modern Approach (Recommended)**
+## Python API: recommended form
+
+For new code, use `ReportGenerator` directly. It exposes
+configuration, validation and the option to save with a custom
+title:
+
 ```python
-# RECOMMENDED (0.3.x) - Full modern API:
 from reporthanter import ReportGenerator, DefaultConfig
 
-config = DefaultConfig()  # Or DefaultConfig("config.json")
-generator = ReportGenerator(config)
-
+generator = ReportGenerator(DefaultConfig())  # or DefaultConfig("config.json")
 report = generator.generate_report(
     blastn_file="results.csv",
     kraken_file="kraken.tsv",
-    kaiju_table="kaiju.tsv", 
+    kaiju_table="kaiju.tsv",
     fastp_json="fastp.json",
     flagstat_file="flagstat.txt",
     coverage_folder="plots/",
-    sample_name="Test"
+    sample_name="Test",
 )
-
 generator.save_report(report, "output.html")
 ```
 
-### **Step 3: Advanced Users - Individual Processors**
-```python
-# OLD (individual functions):
-from reporthanter import plot_kraken, plot_kaiju
+## Replacing individual free functions
 
-# NEW (processor classes):
+The 0.1.x plotting helpers (`plot_kraken`, `plot_kaiju`,
+`plot_blastn`) are replaced by paired processor and plot-generator
+classes:
+
+```python
 from reporthanter import KrakenProcessor, KrakenPlotGenerator
 
 processor = KrakenProcessor()
@@ -116,96 +119,44 @@ plot_gen = KrakenPlotGenerator()
 chart = plot_gen.generate_plot(filtered_data)
 ```
 
-## 🚨 **Common Migration Issues**
+Filter thresholds and styling that used to be passed as keyword
+arguments are now read from configuration:
 
-### **Problem 1: Import Errors**
 ```python
-# ❌ This will fail:
-from reporthanter import panel_report
-# ImportError: cannot import name 'panel_report'
-
-# ✅ Fix:
-from reporthanter import create_report as panel_report
-```
-
-### **Problem 2: Missing Individual Functions**
-```python
-# ❌ This will fail:
-from reporthanter import plot_kraken
-# ImportError: cannot import name 'plot_kraken'
-
-# ✅ Fix:
-from reporthanter import KrakenProcessor, KrakenPlotGenerator
-processor = KrakenProcessor()
-plot_gen = KrakenPlotGenerator()
-```
-
-### **Problem 3: Configuration**
-```python
-# ❌ Old hardcoded parameters:
-plot_kraken(file, level="species", cutoff=0.01)
-
-# ✅ New configurable approach:
 config = DefaultConfig()
 config.config["filtering"]["kraken"]["cutoff"] = 0.01
 processor = KrakenProcessor(config.get_config("kraken"))
 ```
 
-## 📝 **Migration Checklist**
+## Common import errors
 
-- [ ] **Backup your code** before upgrading
-- [ ] **CLI users**: Upgrade directly (no code changes needed)
-- [ ] **Python users**: Replace `panel_report` with `create_report`
-- [ ] **Advanced users**: Migrate to processor classes
-- [ ] **Test thoroughly** with your data
-- [ ] **Consider configuration files** for customization
+| Symptom | Resolution |
+|---------|------------|
+| `ImportError: cannot import name 'panel_report'` | Replace with `from reporthanter import create_report`, or alias: `from reporthanter import create_report as panel_report`. |
+| `ImportError: cannot import name 'plot_kraken'` | Use `KrakenProcessor` and `KrakenPlotGenerator`. |
+| `TypeError: unexpected keyword argument 'cutoff'` | Move the value into the JSON configuration under `filtering.kraken.cutoff`. |
 
-## 🆘 **Need Help?**
+## Verification
 
-### **Quick Compatibility Test**
-Run this to check if your code will work:
+After updating imports:
 
-```python
-# Test script
-try:
-    from reporthanter import create_report
-    print("✅ Migration should be easy - use create_report()")
-except ImportError:
-    print("❌ You need to update your import statements")
-
-try:
-    from reporthanter import ReportGenerator
-    print("✅ Modern API available")
-except ImportError:
-    print("❌ Something is wrong with your installation")
+```bash
+make all-checks
+python scripts/test_0_3_structure.py
 ```
 
-### **Emergency Fallback**
-If you can't migrate immediately:
-1. **Stay on 0.2.x** until you can migrate
-2. **Pin your dependency**: `reporthanter==0.2.0`
-3. **Plan migration** when you have time
+`make all-checks` runs the full developer workflow
+(`ruff format-check`, `ruff check`, `mypy`, `pytest`).
+`test_0_3_structure.py` adds a layout sanity check that the
+package structure matches the 0.3.x expectation.
 
-### **Get Support**
-- 📚 Check the examples in `/examples/` directory
-- 🐛 Report issues on GitHub with your code snippets
-- 💬 Include your error messages for faster help
+## If migration must be deferred
 
-## 🎯 **Why Upgrade?**
+Pin to the final 0.2.x release:
 
-### **Benefits of 0.3.0:**
-- 🧹 **50% less code** = faster load times
-- 🛡️ **Better error handling** = fewer crashes
-- 🚀 **Improved performance** = faster reports
-- 🔧 **Easier maintenance** = more reliable updates
-- 📊 **Better testing** = higher quality
-- 🎛️ **Configuration system** = more customizable
+```
+reporthanter==0.2.0
+```
 
-### **Future-Proofing:**
-- 0.3.x will receive all new features
-- 0.2.x is now in maintenance mode only
-- 0.1.x is end-of-life
-
----
-
-**TL;DR:** CLI users can upgrade immediately. Python users: replace `panel_report` with `create_report` and you're done!
+0.2.x is unmaintained; treat this as a holding measure rather than
+a long-term position.

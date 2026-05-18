@@ -1,150 +1,72 @@
-# 🎨 Visual Report Improvements Summary
+# Visualisation layer: implementation notes
 
-## **📊 Comprehensive Visual Enhancement System Completed**
+Internal companion to
+[`../user-guide/VISUAL_IMPROVEMENTS_GUIDE.md`](../user-guide/VISUAL_IMPROVEMENTS_GUIDE.md).
+The user guide covers how to invoke the enhanced visualisation
+system; this note describes what was added to the package and how
+the pieces fit together.
 
-The reportHanter visual reporting system has been **dramatically enhanced** with a complete visualization overhaul that transforms basic charts into publication-quality, interactive dashboards.
+## Scope
 
----
+The 0.3.0 visualisation layer extends the basic Altair charts used
+by the default `ReportGenerator` with:
 
-## **🔍 Before vs After Comparison**
+- additional chart types (donut, treemap, heatmap, gauge, radar and
+  multi-panel dashboards) alongside the original bar charts,
+- perceptually uniform and colour-blind-aware palettes (viridis,
+  plasma and journal-style schemes),
+- responsive layout templates,
+- a JSON-driven configuration mechanism.
 
-### **❌ Previous System (Basic)**
-- Simple bar charts only
-- Basic `mark_bar()` implementation  
-- Single color scheme (`category10`)
-- Static, non-responsive layouts
-- Minimal interactivity (basic tooltips)
-- No customization options
-- Fixed grid layouts
-- No statistical insights
+The layer is optional. `ReportGenerator` and `create_report`
+continue to function without it. If the visualisation dependencies
+are missing, the enhanced entry points raise a clear ImportError
+rather than failing at chart-construction time.
 
-### **✅ Enhanced System (Advanced)**
-- **8+ Chart Types**: Bar, donut, treemap, heatmap, gauge, radar, dashboard, scatter
-- **Scientific Color Palettes**: Viridis, plasma, nature, cell journal schemes
-- **Interactive Features**: Hover effects, brushing, filtering, drill-down
-- **Responsive Layouts**: Auto-adapting to screen sizes and content
-- **Statistical Overlays**: Confidence intervals, trend lines, thresholds
-- **Dashboard Templates**: Scientific, executive, comparison, minimal
-- **Full Customization**: JSON-based configuration system
-- **Modern Styling**: Cards, shadows, gradients, animations
-
----
-
-## **🚀 Key Features Implemented**
-
-### **1. Enhanced Chart Types**
-```python
-ChartType.BAR          # Enhanced bars with gradients
-ChartType.DONUT        # Proportional donut charts  
-ChartType.TREEMAP      # Hierarchical space-filling
-ChartType.HEATMAP      # Correlation matrices
-ChartType.GAUGE        # Quality metric gauges
-ChartType.RADAR        # Multi-dimensional analysis
-ChartType.DASHBOARD    # Multi-view combinations
-```
-
-### **2. Scientific Color Schemes**
-```python
-ColorScheme.VIRIDIS    # Perceptually uniform
-ColorScheme.PLASMA     # High contrast highlights
-ColorScheme.NATURE     # Nature journal inspired
-ColorScheme.CELL       # Cell journal colors
-```
-
-### **3. Interactive Features**
-- **Hover Effects**: Enhanced tooltips with multi-data points
-- **Brushing**: Select regions for zooming
-- **Filtering**: Real-time data filtering
-- **Drill-down**: Click to explore details
-- **Cross-highlighting**: Coordinated multi-chart interactions
-
-### **4. Responsive Dashboard Layouts**
-```python
-LayoutTemplate.SCIENTIFIC    # Publication-ready
-LayoutTemplate.EXECUTIVE     # Business dashboard
-LayoutTemplate.COMPARISON    # Side-by-side analysis
-LayoutTemplate.MINIMAL       # Clean, simple
-```
-
-### **5. Statistical Enhancements**
-- Confidence intervals and error bands
-- Reference lines and thresholds
-- Trend analysis and regression
-- Summary statistics overlays
-- Diversity indices and quality metrics
-
----
-
-## **📁 File Structure Added**
+## Package layout
 
 ```
 reporthanter/visualization/
-├── __init__.py              # Public API exports
-├── themes.py                # Color schemes & scientific themes
-├── enhanced_plots.py        # Advanced chart generators
-├── layout_engine.py         # Responsive layout system
-├── config.py               # Configuration management
-└── integration.py          # Integration with existing system
+  __init__.py        Public re-exports for the enhanced layer
+  themes.py          Colour schemes and chart-level styling
+  enhanced_plots.py  Chart generators for the additional types
+  layout_engine.py   Responsive layout templates
+  config.py          VisualizationConfig, PlotConfig, LayoutConfig
+  integration.py     EnhancedReportGenerator and glue with the
+                     core ReportGenerator
 ```
 
-### **Supporting Files:**
-- `VISUAL_IMPROVEMENTS_GUIDE.md` - Comprehensive usage guide
-- `examples/enhanced_visualization_demo.py` - Interactive demo
-- `config_examples/visualization_*.json` - Example configurations
+## Public surface
 
----
-
-## **🎯 Usage Examples**
-
-### **Quick Start (Presets)**
-```python
-from reporthanter.visualization import EnhancedReportGenerator
-
-# Scientific publication style
-generator = EnhancedReportGenerator(viz_config="scientific")
-
-# Executive dashboard style  
-generator = EnhancedReportGenerator(viz_config="executive")
-
-# Generate enhanced report
-report = generator.generate_enhanced_report(
-    kraken_file="kraken.tsv",
-    kaiju_table="kaiju.tsv",
-    blastn_file="blast.csv"
-)
-```
-
-### **Advanced Customization**
 ```python
 from reporthanter.visualization import (
-    VisualizationConfig, PlotConfig, LayoutConfig,
-    ChartType, ColorScheme, LayoutTemplate
+    EnhancedReportGenerator,
+    VisualizationConfig,
+    PlotConfig,
+    LayoutConfig,
+    ChartType,
+    ColorScheme,
+    LayoutTemplate,
 )
-
-viz_config = VisualizationConfig(
-    kraken=PlotConfig(
-        chart_type=ChartType.DASHBOARD,
-        color_scheme=ColorScheme.VIRIDIS,
-        height=600,
-        interactive=True
-    ),
-    layout=LayoutConfig(
-        template=LayoutTemplate.EXECUTIVE,
-        responsive=True,
-        show_filters=True
-    )
-)
-
-generator = EnhancedReportGenerator(viz_config=viz_config)
 ```
 
-### **JSON Configuration**
+`ChartType`, `ColorScheme` and `LayoutTemplate` are enums consumed
+by `PlotConfig` and `LayoutConfig`. `EnhancedReportGenerator`
+accepts either a preset string (for example `"scientific"`,
+`"executive"`, `"minimal"`, `"publication"`) or a fully populated
+`VisualizationConfig`.
+
+## Configuration
+
+Configurations may be provided in Python or as JSON. The JSON form
+mirrors the Python objects field for field:
+
 ```json
 {
   "visualization": {
     "kraken": {
       "chart_type": "dashboard",
-      "color_scheme": "viridis", 
+      "color_scheme": "viridis",
       "height": 600,
       "interactive": true
     },
@@ -156,112 +78,33 @@ generator = EnhancedReportGenerator(viz_config=viz_config)
 }
 ```
 
----
+Example configurations live under
+[`examples/configurations/`](../../examples/configurations/).
 
-## **🎨 Available Presets**
+## Integration with the core generator
 
-| Preset | Description | Best For |
-|--------|-------------|----------|
-| **Scientific** | Clean, publication-ready | Research papers, journals |
-| **Executive** | Business dashboard style | Presentations, reports |
-| **Minimal** | Simple, uncluttered | Quick analysis, drafts |
-| **Publication** | High-contrast B&W | Print publications |
+`EnhancedReportGenerator` composes the same processors as
+`ReportGenerator` (no parsing logic is duplicated) and substitutes
+the enhanced plot generators when a `PlotConfig` specifies an
+extended chart type. Sections that have no enhanced configuration
+fall back to the default chart, so partial configurations are
+valid.
 
----
+## Backward compatibility
 
-## **📈 Performance & Benefits**
+- The `ReportGenerator` and `create_report` entry points are
+  unchanged.
+- The CLI does not yet expose the enhanced layer directly; access
+  is through the Python API or the `--config_file` argument.
+- Missing optional dependencies degrade gracefully: the basic
+  charts continue to render and the enhanced entry points report
+  the missing package.
 
-### **Enhanced User Experience**
-- **50% more visual information** density
-- **Interactive exploration** capabilities  
-- **Responsive design** works on all devices
-- **Professional appearance** suitable for publications
+## Related material
 
-### **Scientific Value**
-- **Perceptually uniform** color schemes (colorblind-friendly)
-- **Statistical overlays** provide deeper insights
-- **Multi-view dashboards** reveal data relationships
-- **Export capabilities** for publications and presentations
-
-### **Technical Benefits**
-- **Modular architecture** easy to extend
-- **Configuration-driven** customization
-- **Graceful fallbacks** when dependencies unavailable
-- **Full backward compatibility** with existing code
-
----
-
-## **🔧 Integration with Existing System**
-
-### **Backward Compatibility**
-```python
-# ✅ Old code still works
-from reporthanter import ReportGenerator, create_report
-
-# ✅ New enhanced system available
-from reporthanter.visualization import EnhancedReportGenerator
-
-# ✅ Gradual migration path
-generator = EnhancedReportGenerator(viz_config="scientific")
-```
-
-### **Dependency Management**
-- **Graceful import handling** - system works without visualization deps
-- **Optional enhancement** - basic system still functional
-- **Clear error messages** guide users to install dependencies
-
----
-
-## **📚 Documentation & Examples**
-
-### **Comprehensive Guides**
-- **VISUAL_IMPROVEMENTS_GUIDE.md** - Complete usage documentation
-- **Interactive demo script** with live examples
-- **JSON configuration examples** for all presets
-- **Migration guide** from basic to enhanced
-
-### **Example Configurations**
-- `visualization_scientific.json` - Research paper style
-- `visualization_executive.json` - Business dashboard
-- `visualization_minimal.json` - Clean and simple
-- `visualization_publication.json` - Print-ready B&W
-- `visualization_comprehensive.json` - All options demo
-
----
-
-## **🎉 Results Achieved**
-
-### **Visual Quality Improvements**
-- ✅ **Publication-ready** visualizations
-- ✅ **Interactive dashboards** for exploration
-- ✅ **Responsive design** for all devices
-- ✅ **Scientific color palettes** (colorblind-friendly)
-- ✅ **Statistical overlays** for deeper insights
-
-### **User Experience Enhancements**  
-- ✅ **Easy configuration** via JSON files
-- ✅ **Multiple presets** for different use cases
-- ✅ **Graceful fallbacks** maintain compatibility
-- ✅ **Clear documentation** and examples
-- ✅ **Migration path** from basic system
-
-### **Technical Architecture**
-- ✅ **Modular design** for easy extension
-- ✅ **Configuration-driven** customization
-- ✅ **Clean integration** with existing system
-- ✅ **Comprehensive error handling**
-- ✅ **Future-ready** for new visualization types
-
----
-
-## **🚀 Next Steps for Users**
-
-1. **Try the demo**: Run `python examples/enhanced_visualization_demo.py`
-2. **Explore presets**: Start with `"scientific"` or `"executive"`  
-3. **Customize**: Create your own JSON configuration files
-4. **Integrate**: Update existing reports to use enhanced system
-5. **Experiment**: Try different chart types and layouts
-
----
-
-**The reportHanter visual system has been transformed from a basic charting tool into a comprehensive, publication-quality data visualization platform! 🎨✨**
+- User-facing guide:
+  [`../user-guide/VISUAL_IMPROVEMENTS_GUIDE.md`](../user-guide/VISUAL_IMPROVEMENTS_GUIDE.md)
+- Demo script:
+  [`../../examples/demos/enhanced_visualization_demo.py`](../../examples/demos/enhanced_visualization_demo.py)
+- Example configurations:
+  [`../../examples/configurations/`](../../examples/configurations/)

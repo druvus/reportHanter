@@ -1,59 +1,69 @@
-# ⚙️ Configuration Examples
+# Configuration examples
 
-This directory contains example configuration files for reportHanter customization.
+JSON configuration files for the `reportHanter` default generator
+and the optional enhanced visualisation layer. Use these as
+templates rather than as required inputs; both generators run with
+sensible defaults if no configuration is supplied.
 
-## 📁 **Available Configurations**
+## Shipped files
 
-### **Basic Configuration**
-- **[config_example.json](config_example.json)** - Basic reportHanter configuration with standard options
+- [`config_example.json`](config_example.json) — configuration for
+  the default `ReportGenerator`, covering plotting, filtering,
+  report styling and logging.
 
-### **Visualization Configurations** (v0.3.0+)
-Generate advanced visualization configurations:
+Visualisation preset files (`visualization_scientific.json`,
+`visualization_executive.json`, `visualization_minimal.json`,
+`visualization_publication.json` and
+`visualization_comprehensive.json`) are generated on demand:
+
 ```bash
 python -c "from reporthanter.visualization import create_visualization_examples; create_visualization_examples()"
 ```
 
-This creates several preset configurations in `config_examples/`:
-- `visualization_scientific.json` - Publication-ready style
-- `visualization_executive.json` - Business dashboard style  
-- `visualization_minimal.json` - Clean and simple
-- `visualization_publication.json` - High-contrast for print
-- `visualization_comprehensive.json` - All options example
+## Using the default-generator configuration
 
-## 🎯 **Configuration Usage**
+### Command line
 
-### **CLI Usage**
 ```bash
-reporthanter --config_file examples/configurations/config_example.json \
-    --blastn_file data.csv --kraken_file kraken.tsv --output report.html
+reporthanter \
+    --config_file examples/configurations/config_example.json \
+    --blastn_file data.csv \
+    --kraken_file kraken.tsv \
+    --kaiju_table kaiju.tsv \
+    --fastp_json fastp.json \
+    --flagstat_file flagstat.txt \
+    --coverage_folder plots/ \
+    --output report.html
 ```
 
-### **Python API Usage**
+### Python
+
 ```python
 from reporthanter import DefaultConfig, ReportGenerator
 
-# Load configuration
 config = DefaultConfig("examples/configurations/config_example.json")
 generator = ReportGenerator(config)
-
-# Generate report
-report = generator.generate_report(...)
 ```
 
-### **Enhanced Visualizations**
+## Using a visualisation configuration
+
+`EnhancedReportGenerator(viz_config=...)` accepts either a preset
+name (`"scientific"`, `"executive"`, `"minimal"`, `"publication"`)
+or a `VisualizationConfig` instance. To use a JSON file, load it
+through `VisualizationConfigManager`:
+
 ```python
-from reporthanter.visualization import EnhancedReportGenerator, VisualizationConfigManager
+from pathlib import Path
+from reporthanter.visualization import (
+    EnhancedReportGenerator, VisualizationConfigManager,
+)
 
-# Load visualization configuration
-viz_manager = VisualizationConfigManager("config_examples/visualization_scientific.json")
-config = viz_manager.config
-
-generator = EnhancedReportGenerator(viz_config=config)
+viz_manager = VisualizationConfigManager(Path("visualization_scientific.json"))
+generator = EnhancedReportGenerator(viz_config=viz_manager.config)
 ```
 
-## 📝 **Configuration Reference**
+## Default-generator configuration schema
 
-### **Basic Configuration Structure**
 ```json
 {
   "plotting": {
@@ -85,7 +95,8 @@ generator = EnhancedReportGenerator(viz_config=config)
 }
 ```
 
-### **Visualization Configuration Structure**
+## Visualisation configuration schema
+
 ```json
 {
   "visualization": {
@@ -100,22 +111,48 @@ generator = EnhancedReportGenerator(viz_config=config)
       "chart_type": "donut",
       "color_scheme": "plasma"
     },
+    "blast": {
+      "chart_type": "bar",
+      "color_scheme": "nature"
+    },
+    "quality": {
+      "chart_type": "gauge",
+      "color_scheme": "cell"
+    },
     "layout": {
       "template": "scientific",
       "responsive": true,
-      "show_filters": true
+      "grid_columns": 2,
+      "card_style": true,
+      "show_filters": true,
+      "show_export": true
     },
     "theme": {
       "primary_color": "#1f77b4",
-      "font_family": "Arial, sans-serif"
+      "secondary_color": "#ff7f0e",
+      "background_color": "#ffffff",
+      "text_color": "#333333",
+      "font_family": "Arial, sans-serif",
+      "font_size_base": 12,
+      "border_radius": 4,
+      "shadow": true
     }
   }
 }
 ```
 
-## 🎨 **Customization Examples**
+Permitted values:
 
-### **Scientific Publication Style**
+| Key | Values |
+|-----|--------|
+| `chart_type` | `bar`, `donut`, `treemap`, `heatmap`, `dashboard`, `gauge`, `radar`, `scatter`, `line`, `area` |
+| `color_scheme` | `viridis`, `plasma`, `nature`, `cell`, `category10`, `category20`, `dark2`, `paired`, `set3` |
+| `layout.template` | `scientific`, `executive`, `comparison`, `dashboard`, `minimal` |
+
+## Worked examples
+
+### Publication-oriented
+
 ```json
 {
   "visualization": {
@@ -125,18 +162,21 @@ generator = EnhancedReportGenerator(viz_config=config)
       "height": 500
     },
     "layout": {
-      "template": "scientific"
+      "template": "scientific",
+      "responsive": false
     },
     "theme": {
-      "primary_color": "#2E8B57",
+      "primary_color": "#000000",
+      "background_color": "#ffffff",
       "font_family": "Times, serif",
-      "background_color": "#ffffff"
+      "font_size_base": 14
     }
   }
 }
 ```
 
-### **Executive Dashboard Style**  
+### Multi-panel dashboard
+
 ```json
 {
   "visualization": {
@@ -144,128 +184,68 @@ generator = EnhancedReportGenerator(viz_config=config)
       "chart_type": "dashboard",
       "color_scheme": "category20"
     },
+    "kaiju": {
+      "chart_type": "donut",
+      "color_scheme": "category20"
+    },
+    "blast": {
+      "chart_type": "heatmap",
+      "color_scheme": "viridis"
+    },
     "layout": {
       "template": "executive",
       "grid_columns": 3,
       "show_filters": true
-    },
-    "theme": {
-      "primary_color": "#1f77b4",
-      "shadow": true
     }
   }
 }
 ```
 
-### **Colorblind-Friendly Configuration**
+### Colour-blind aware
+
 ```json
 {
   "visualization": {
-    "kraken": {
-      "color_scheme": "viridis"
-    },
-    "kaiju": {
-      "color_scheme": "viridis"
-    },
-    "blast": {
-      "color_scheme": "plasma"
-    }
+    "kraken":  { "color_scheme": "viridis" },
+    "kaiju":   { "color_scheme": "viridis" },
+    "blast":   { "color_scheme": "plasma" },
+    "quality": { "color_scheme": "viridis" }
   }
 }
 ```
 
-## 🔧 **Configuration Options Reference**
+## Validation
 
-### **Chart Types**
-- `"bar"` - Enhanced horizontal bar charts
-- `"donut"` - Donut/pie charts
-- `"treemap"` - Hierarchical rectangles  
-- `"heatmap"` - Correlation matrices
-- `"gauge"` - Speedometer-style gauges
-- `"radar"` - Multi-axis radar charts
-- `"dashboard"` - Multi-view combinations
-
-### **Color Schemes**
-- `"viridis"` - Perceptually uniform
-- `"plasma"` - High contrast
-- `"nature"` - Nature journal inspired
-- `"cell"` - Cell journal colors
-- `"category10"` - 10 distinct colors
-- `"category20"` - 20 distinct colors
-
-### **Layout Templates**
-- `"scientific"` - Publication-ready
-- `"executive"` - Business dashboard
-- `"comparison"` - Side-by-side
-- `"minimal"` - Clean and simple
-
-## 🧪 **Testing Your Configuration**
-
-### **Validate Configuration**
 ```python
 from reporthanter.visualization import VisualizationConfigManager
 
 manager = VisualizationConfigManager()
 config = manager.get_preset("scientific")
 
-# Validate
 issues = manager.validate_config(config)
-if not issues:
-    print("✅ Configuration is valid")
-else:
-    for issue in issues:
-        print(f"⚠️  {issue}")
+for issue in issues:
+    print(issue)
 ```
 
-### **Preview Configuration**
-```python
-# Test your configuration without generating full report
-from reporthanter.visualization import EnhancedReportGenerator
+`validate_config` returns an empty list when the configuration is
+acceptable.
 
-generator = EnhancedReportGenerator(viz_config="path/to/your/config.json")
-print("✅ Configuration loaded successfully")
-```
+## Performance notes
 
-## 📋 **Configuration Tips**
+Smaller chart heights, disabled animations and disabled
+interactivity reduce rendering time:
 
-### **Performance Optimization**
 ```json
 {
   "visualization": {
     "kraken": {
-      "height": 300,        // Smaller height = faster rendering
-      "animate": false,     // Disable animations
-      "interactive": false  // Disable interactivity
+      "height": 300,
+      "animate": false,
+      "interactive": false
     }
   }
 }
 ```
 
-### **High-Quality Output**
-```json
-{
-  "visualization": {
-    "kraken": {
-      "height": 600,        // Larger height = better quality
-      "chart_type": "dashboard",  // More detailed views
-      "interactive": true   // Enable all features
-    }
-  }
-}
-```
-
-### **Mobile-Friendly**
-```json
-{
-  "visualization": {
-    "layout": {
-      "responsive": true,   // Auto-adapt to screen size
-      "grid_columns": 1     // Single column on mobile
-    }
-  }
-}
-```
-
----
-
-**Use these configurations as starting points for your own customizations! 🎨**
+Conversely, the dashboard chart types and larger heights produce
+denser output at higher rendering cost.

@@ -1,202 +1,140 @@
 # reportHanter
 
-**Modern, robust interactive HTML report generator for bioinformatics sequence classification analyses.**
+`reportHanter` is a Python package that renders an interactive HTML
+report from the per-sample outputs of viral metagenomics pipelines
+such as [virusHanter2](../virusHanter2). It aggregates results from
+FASTP, Kraken, Kaiju, BLASTN and BWA `flagstat`, together with
+per-reference coverage plots, into a single self-contained HTML
+file built on [Panel](https://panel.holoviz.org/) and
+[Altair](https://altair-viz.github.io/).
 
-ReportHanter aggregates and visualizes results from various bioinformatics tools—FASTP, Kraken, Kaiju, BLASTN, and alignment statistics—into a single, easy-to-navigate interactive report. Built with [Panel](https://panel.holoviz.org/) and [Altair](https://altair-viz.github.io/) for high-quality visualizations.
+The package replaces the inline report code that used to live in the
+original monolithic `virusHanter` Snakefile. A command-line entry
+point (`reporthanter`) and a stable Python API (`create_report`,
+`ReportGenerator`) are provided.
 
-## ✨ **Version 0.3.0 - Modern Architecture**
-- 🏗️ **Clean, modular design** with comprehensive error handling
-- ⚙️ **Configurable** via JSON files for custom styling and behavior  
-- 🛡️ **Robust validation** of input files and parameters
-- 🚀 **High performance** streamlined processing pipeline
-- 🧪 **Well-tested** with comprehensive test suite
-- 🎨 **Enhanced visualizations** with interactive dashboards and scientific color schemes
+## Requirements
 
-## 🎯 **Key Features**
-
-- **🔬 Multi-tool Integration:** Combines output from FASTP, Kraken, Kaiju, BLASTN, and BWA flagstat
-- **📊 Interactive Visualizations:** Multiple chart types (bar, donut, treemap, dashboard) with hover effects
-- **🎨 Scientific Color Schemes:** Publication-ready, colorblind-friendly palettes (viridis, plasma, nature)
-- **📱 Responsive Design:** Adaptive layouts that work on all devices
-- **⚙️ Configurable Reports:** JSON-based customization of styling, colors, and layouts
-- **🖥️ Command-line Interface:** Single command report generation
-- **🐍 Python API:** Programmatic access with both basic and enhanced visualization options
-- **📈 Statistical Overlays:** Confidence intervals, trend lines, and quality thresholds
+- Python 3.12 or later
+- See `pyproject.toml` for the full dependency list
 
 ## Installation
-
-ReportHanter requires Python 3.8 or later.
-
-1. **Clone the repository:**
 
 ```bash
 git clone https://github.com/druvus/reportHanter.git
 cd reportHanter
+pip install -e .
 ```
 
-2.	**Install the package (using a virtual environment is recommended):**
+For development:
 
-   ```bash
-    pip install -e .
-   ```
-This installs all required dependencies as specified in setup.py.
+```bash
+pip install -e ".[dev]"
+make all-checks
+```
 
-## Usage
-
-### 🖥️ **Command Line Interface**
+## Command-line usage
 
 ```bash
 reporthanter \
-    --blastn_file results.csv \
-    --kraken_file kraken.tsv \
-    --kaiju_table kaiju.tsv \
-    --fastp_json fastp.json \
+    --blastn_file    results.csv \
+    --kraken_file    kraken.tsv \
+    --kaiju_table    kaiju.tsv \
+    --fastp_json     fastp.json \
+    --flagstat_file  flagstat.txt \
     --coverage_folder plots/ \
-    --flagstat_file flagstat.txt \
-    --output report.html \
-    --sample_name "MySample" \
-    --log_level INFO
+    --output         report.html \
+    --sample_name    "MySample"
 ```
 
-### 🐍 **Python API**
+| Flag | Description |
+|------|-------------|
+| `--blastn_file` | BLASTN CSV results |
+| `--kraken_file` | Kraken TSV classification |
+| `--kaiju_table` | Kaiju TSV table |
+| `--fastp_json` | FastP JSON report |
+| `--flagstat_file` | BWA `flagstat` log |
+| `--coverage_folder` | Directory containing per-reference coverage SVGs |
+| `--output` | Output HTML path |
+| `--sample_name` | Optional sample identifier |
+| `--config_file` | Optional JSON configuration file |
+| `--log_level` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `--validate_only` | Validate inputs and exit without rendering |
 
-**Simple usage:**
+Run `reporthanter --help` for the complete reference.
+
+## Python API
+
+The high-level wrapper preserves the call signature of the original
+`virusHanter` report function:
+
 ```python
 from reporthanter import create_report
 
-# Generate report (compatible with older versions)
 report = create_report(
     blastn_file="results.csv",
-    kraken_file="kraken.tsv", 
+    kraken_file="kraken.tsv",
     kaiju_table="kaiju.tsv",
     fastp_json="fastp.json",
     flagstat_file="flagstat.txt",
     coverage_folder="plots/",
-    sample_name="MySample"
+    sample_name="MySample",
 )
-
-# Save to HTML
 report.save("my_report.html")
 ```
 
-**Advanced usage with configuration:**
+For finer control, use `ReportGenerator` with a configuration
+object:
+
 ```python
 from reporthanter import ReportGenerator, DefaultConfig
 
-# Load custom configuration
-config = DefaultConfig("my_config.json")
-generator = ReportGenerator(config)
-
-# Generate report
+generator = ReportGenerator(DefaultConfig("my_config.json"))
 report = generator.generate_report(
     blastn_file="results.csv",
     kraken_file="kraken.tsv",
-    kaiju_table="kaiju.tsv", 
+    kaiju_table="kaiju.tsv",
     fastp_json="fastp.json",
     flagstat_file="flagstat.txt",
     coverage_folder="plots/",
-    sample_name="MySample"
+    sample_name="MySample",
 )
-
-# Save with custom title
 generator.save_report(report, "report.html", title="My Analysis Report")
 ```
 
-**Individual processors for advanced workflows:**
-```python
-from reporthanter import KrakenProcessor, KrakenPlotGenerator
+Individual processors (`KrakenProcessor`, `KaijuProcessor`,
+`BlastProcessor`, `FastpProcessor`, `FlagstatProcessor`) and the
+matching plot generators are also exposed for custom pipelines.
 
-# Process Kraken data
-processor = KrakenProcessor()
-data = processor.process("kraken.tsv")
-filtered_data, unclassified = processor.filter_data(data, virus_only=True)
+## Documentation
 
-# Generate plots
-plot_gen = KrakenPlotGenerator()
-chart = plot_gen.generate_plot(filtered_data)
-```
+All long-form documentation lives under [`docs/`](docs/README.md).
+Useful entry points:
 
-## 📚 **Documentation**
+- [Documentation index](docs/README.md)
+- [Migration guide](docs/user-guide/MIGRATION_GUIDE.md) — moving
+  between versions
+- [Upgrade to 0.3.0](docs/user-guide/UPGRADE_TO_0.3.0.md) — breaking
+  changes in the current major release
+- [Visual improvements guide](docs/user-guide/VISUAL_IMPROVEMENTS_GUIDE.md)
+  — chart types, colour schemes and dashboard layouts
+- [Developer notes](docs/developer/) — internal architecture and
+  release summaries
+- [Examples](examples/README.md) — configuration files and demo
+  scripts
+- [Utility scripts](scripts/README.md) — structural and
+  compatibility checks
+- [Changelog](CHANGELOG.md)
 
-### **📖 User Documentation**
-- **[Complete Documentation](docs/README.md)** - Comprehensive documentation hub
-- **[Visual Improvements Guide](docs/user-guide/VISUAL_IMPROVEMENTS_GUIDE.md)** - Enhanced visualization system
-- **[Migration Guide](docs/user-guide/MIGRATION_GUIDE.md)** - Version migration assistance
-- **[Upgrade to 0.3.0](docs/user-guide/UPGRADE_TO_0.3.0.md)** - Breaking changes guide
+## Relationship to virusHanter2
 
-### **💡 Examples & Configuration**
-- **[Examples Directory](examples/README.md)** - Usage examples and demos
-- **[Configuration Examples](examples/configurations/README.md)** - JSON configuration files
-- **[Interactive Demo](examples/demos/enhanced_visualization_demo.py)** - Try the visualization system
+`virusHanter2` produces the per-sample files that `reportHanter`
+consumes. The two projects together must reproduce the same
+per-sample HTML report and `run_information_<batch>.csv` schema as
+the original `virusHanter`. See
+[`../virusHanter2/docs/PARITY_NOTES.md`](../virusHanter2/docs/PARITY_NOTES.md)
+for catalogued differences.
 
-### **🔧 Developer Resources**
-- **[Developer Documentation](docs/developer/)** - Technical implementation details
-- **[Utility Scripts](scripts/README.md)** - Testing and validation tools
-- **[API Reference](docs/api/)** - *Coming Soon*
+## Licence
 
-### **📋 Command-Line Reference**
-```bash
-reporthanter --help  # View all options
-
-# Required arguments:
---blastn_file     # Path to BLASTN CSV results
---kraken_file     # Path to Kraken TSV classification  
---kaiju_table     # Path to Kaiju TSV table
---fastp_json      # Path to FastP JSON report
---flagstat_file   # Path to BWA flagstat log
---coverage_folder # Folder with coverage plot SVGs
---output          # Output HTML file path
-
-# Optional arguments:
---sample_name     # Sample identifier
---config_file     # JSON configuration file
---log_level       # Logging verbosity (DEBUG, INFO, WARNING, ERROR)
---validate_only   # Only validate inputs without generating report
-```
-
-## 🎯 **Example Output**
-
-ReportHanter generates interactive HTML reports with:
-- **📊 Dashboard Overview:** Key metrics and summary statistics
-- **🧬 Classification Analysis:** Interactive Kraken and Kaiju taxonomic plots
-- **📈 Quality Assessment:** FastP quality control metrics and visualizations  
-- **🎯 Alignment Statistics:** BWA mapping statistics and coverage analysis
-- **🔍 Contig Classification:** BLASTN results with searchable tables
-- **📱 Responsive Design:** Works perfectly on desktop, tablet, and mobile
-
-## 🤝 **Contributing**
-
-Contributions are welcome! We're looking for:
-- 🐛 **Bug reports** and fixes
-- ✨ **New features** and enhancements  
-- 📚 **Documentation** improvements
-- 🎨 **Visualization** enhancements
-- 🧪 **Test coverage** expansion
-
-### **Development Setup**
-```bash
-# Clone and setup development environment
-git clone https://github.com/druvus/reportHanter.git
-cd reportHanter
-
-# Install with development dependencies
-pip install -e ".[dev]"
-
-# Run tests and validation
-python scripts/test_0_3_structure.py
-make test  # If make is available
-```
-
-See our **Contributing Guidelines** *(coming soon)* for detailed instructions.
-
-## 📄 **License**
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 **Acknowledgments**
-
-- Based on **VirusHanter** codebase
-- Built with **[Panel](https://panel.holoviz.org/)** and **[Altair](https://altair-viz.github.io/)**
-- Inspired by modern data visualization best practices
-- Thanks to all contributors and users! 
-
+Released under the MIT Licence; see [LICENSE](LICENSE).
