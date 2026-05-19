@@ -61,6 +61,7 @@ class ReportGenerator:
         secondary_host: str | None = None,
         sample_name: str | None = None,
         mosdepth_regions: str | Path | None = None,
+        quast_report: str | Path | None = None,
     ) -> pn.Column:
         """Generate the complete report.
 
@@ -80,6 +81,7 @@ class ReportGenerator:
             fastp_json=fastp_json,
             secondary_flagstat_file=secondary_flagstat_file,
             secondary_host=secondary_host,
+            quast_report=quast_report,
         )
 
         raw_classification_section = self._build_section(

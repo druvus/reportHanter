@@ -53,6 +53,15 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--quast_report",
+        default=None,
+        help=(
+            "Optional path to a QUAST report.tsv. When supplied, a "
+            "small assembly-summary table is added to the Alignment "
+            "Stats section as an extra sub-tab."
+        ),
+    )
+    parser.add_argument(
         "--secondary_flagstat_file",
         default=None,
         help="Path to the secondary flagstat file (optional).",
@@ -115,6 +124,7 @@ def main():
             flagstat_file=args.flagstat_file,
             coverage_folder=args.coverage_folder,
             mosdepth_regions=args.mosdepth_regions,
+            quast_report=args.quast_report,
             secondary_flagstat_file=args.secondary_flagstat_file,
             secondary_host=args.secondary_host,
             sample_name=sample_name,
@@ -180,6 +190,14 @@ def validate_inputs(args) -> None:
             errors.append(f"Mosdepth regions path is not a file: {args.mosdepth_regions}")
         elif regions_path.stat().st_size == 0:
             errors.append(f"Mosdepth regions file is empty: {args.mosdepth_regions}")
+    if args.quast_report:
+        quast_path = Path(args.quast_report)
+        if not quast_path.exists():
+            errors.append(f"QUAST report does not exist: {args.quast_report}")
+        elif not quast_path.is_file():
+            errors.append(f"QUAST report path is not a file: {args.quast_report}")
+        elif quast_path.stat().st_size == 0:
+            errors.append(f"QUAST report is empty: {args.quast_report}")
 
     # Check output directory is writable
     output_path = Path(args.output)

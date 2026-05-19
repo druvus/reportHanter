@@ -16,6 +16,7 @@ from ..processors.fastp_processor import FastpProcessor
 from ..processors.flagstat_processor import FlagstatProcessor
 from ..processors.kaiju_processor import KaijuPlotGenerator, KaijuProcessor
 from ..processors.kraken_processor import KrakenPlotGenerator, KrakenProcessor
+from ..processors.quast_processor import QuastProcessor
 
 
 class _SectionBase(ReportSection):
@@ -77,6 +78,7 @@ class AlignmentStatsSection(_SectionBase):
         fastp_json = kwargs.get("fastp_json")
         secondary_flagstat_file = kwargs.get("secondary_flagstat_file")
         secondary_host = kwargs.get("secondary_host", "Secondary")
+        quast_report = kwargs.get("quast_report")
 
         if not flagstat_file or not fastp_json:
             raise ValueError("flagstat_file and fastp_json are required")
@@ -115,8 +117,20 @@ class AlignmentStatsSection(_SectionBase):
         alignment_components.extend(secondary_components)
 
         flagstat_column = pn.Column(*alignment_components, name="Alignment")
-        tabs = pn.Tabs(flagstat_column, fastp_table)
+        tab_panes: list = [flagstat_column, fastp_table]
 
+        # Optional QUAST assembly summary, supplied by virusHanter2 when
+        # the QUAST flag is on. Sits next to FastP in the sub-tab strip
+        # since both are sample-level QC artefacts.
+        if quast_report:
+            try:
+                quast_processor = QuastProcessor(self.config.get_config("quast"))
+                quast_data = quast_processor.process(quast_report)
+                tab_panes.append(quast_processor.create_summary_table(quast_data))
+            except Exception as e:  # noqa: BLE001
+                self.logger.warning(f"Could not render QUAST report {quast_report}: {e}")
+
+        tabs = pn.Tabs(*tab_panes)
         return pn.Column(header, tabs)
 
 
