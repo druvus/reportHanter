@@ -35,8 +35,12 @@ class DefaultConfig(ConfigProvider):
         "report": {
             "template": "fast",
             "theme": "modern",
-            "header_color": "#04c273",
-            "header_bg_color": "#011a01"
+            # Darker than the previous #04c273 so that the white header
+            # text clears WCAG AA contrast on the green band (5.41:1 vs
+            # 2.34:1 previously). Override in config to restore the
+            # brighter mint if needed.
+            "header_color": "#067a48",
+            "header_bg_color": "#011a01",
         },
         "logging": {
             "level": "INFO",

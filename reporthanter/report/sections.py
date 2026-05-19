@@ -59,7 +59,7 @@ class _SectionBase(ReportSection):
                 "margin": "0 10px 10px 10px",
                 "color": "#333",
                 "background": "#f3f3f3",
-                "border-left": "3px solid #04c273",
+                "border-left": "3px solid #067a48",
             },
         )
 
@@ -233,8 +233,10 @@ class ContigClassificationSection(_SectionBase):
         if table_data.empty:
             table_data = pd.DataFrame({"sequence": ["NO SEQUENCES GENERATED"]})
         else:
-            # Clean up table data
-            columns_to_drop = ["name", "matches"]
+            # Clean up table data. sample_id is the same value on every
+            # row of a single-sample report and is already shown in the
+            # main banner, so drop it.
+            columns_to_drop = ["name", "matches", "sample_id"]
             table_data = table_data.drop(
                 columns=[col for col in columns_to_drop if col in table_data.columns]
             )
@@ -290,17 +292,15 @@ class ContigClassificationSection(_SectionBase):
             """
         )
 
-        filters = self._filters_block(
-            [
-                f"BLAST cutoff: {self.config.get('filtering.blast.cutoff', 'n/a')}",
-                f"BLAST max entries: {self.config.get('filtering.blast.max_entries', 'n/a')}",
-            ]
-        )
+        # No per-report BLAST filtering is applied here: the input CSV
+        # is already pre-filtered upstream (BLASTN + CheckV merge in
+        # virusHanter2), so a "Filters applied" block on this section
+        # would only repeat upstream defaults.
 
         blast_pane = pn.pane.Vega(blast_plot, sizing_mode="stretch_both", name="BLASTN")
         tabs = pn.Tabs(blast_pane, blast_table)
 
-        return pn.Column(header, filters, tabs, download_button)
+        return pn.Column(header, tabs, download_button)
 
 
 class CoverageSection(_SectionBase):
