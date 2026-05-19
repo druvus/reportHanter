@@ -68,17 +68,37 @@ class CoveragePlotGenerator(BasePlotGenerator):
         chrom = kwargs.get("chrom", "reference")
         title = kwargs.get("title", f"Coverage: {chrom}")
 
-        base = alt.Chart(data, title=title).encode(
-            x=alt.X("mid:Q", title="Reference position (bp)"),
-            y=alt.Y("depth:Q", title="Mean depth"),
-            tooltip=[
-                alt.Tooltip("chrom:N", title="Reference"),
-                alt.Tooltip("start:Q", title="Window start"),
-                alt.Tooltip("end:Q", title="Window end"),
-                alt.Tooltip("depth:Q", title="Mean depth", format=".2f"),
-            ],
+        tooltip = [
+            alt.Tooltip("chrom:N", title="Reference"),
+            alt.Tooltip("start:Q", title="Window start"),
+            alt.Tooltip("end:Q", title="Window end"),
+            alt.Tooltip("depth:Q", title="Mean depth", format=".2f"),
+        ]
+        x_enc = alt.X("mid:Q", title="Reference position (bp)")
+        y_enc = alt.Y("depth:Q", title="Mean depth")
+
+        # Two cooperating layers (Altair 6 idiom):
+        #   - area + line render the trace.
+        #   - a transparent point layer carries a nearest-point hover
+        #     selection so the tooltip and rule track the cursor along
+        #     the whole x-axis, not only at exact window midpoints.
+        nearest = alt.selection_point(
+            name="cov_hover",
+            nearest=True,
+            on="mouseover",
+            fields=["mid"],
+            empty=False,
         )
 
-        area = base.mark_area(opacity=0.4)
-        line = base.mark_line()
-        return area + line
+        area = alt.Chart(data).mark_area(opacity=0.4).encode(x=x_enc, y=y_enc)
+        line = alt.Chart(data).mark_line().encode(x=x_enc, y=y_enc)
+
+        hover_points = (
+            alt.Chart(data)
+            .mark_point(opacity=0)
+            .encode(x=x_enc, y=y_enc, tooltip=tooltip)
+            .add_params(nearest)
+        )
+        rule = alt.Chart(data).mark_rule(color="gray").encode(x=x_enc).transform_filter(nearest)
+
+        return alt.layer(area, line, hover_points, rule, title=title)

@@ -5,6 +5,7 @@ Main report generator using MVC pattern with improved architecture.
 import logging
 from pathlib import Path
 
+import altair as alt
 import panel as pn
 
 from ..core.config import DefaultConfig
@@ -36,7 +37,7 @@ class ReportGenerator:
         }
 
     def _setup_panel(self) -> None:
-        """Configure Panel settings."""
+        """Configure Panel and Altair settings."""
         try:
             pn.extension("tabulator")
             pn.extension(
@@ -45,6 +46,16 @@ class ReportGenerator:
                 template=self.config.get("report.template", "fast"),
             )
             pn.widgets.Tabulator.theme = self.config.get("report.theme", "modern")
+
+            # Altair's default data transformer caps inline data at
+            # 5_000 rows, which a single high-resolution coverage trace
+            # (e.g. a 250 kb reference at COVERAGE_WINDOW=50) can hit.
+            # Raise the cap so the trace is never silently truncated.
+            # Configurable via ``plotting.max_rows`` for callers that
+            # want a tighter or looser limit.
+            alt.data_transformers.enable(
+                "default", max_rows=int(self.config.get("plotting.max_rows", 100_000))
+            )
         except Exception as e:
             self.logger.error(f"Failed to setup Panel extensions: {e}")
             raise ReportGenerationError(f"Panel setup failed: {e}") from e
