@@ -17,15 +17,7 @@ import pytest
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
-@pytest.fixture
-def coverage_folder(tmp_path):
-    """An empty coverage folder is a valid (if uninteresting) input."""
-    folder = tmp_path / "coverage"
-    folder.mkdir()
-    return folder
-
-
-def test_cli_produces_html(tmp_path, coverage_folder):
+def test_cli_produces_html(tmp_path):
     output = tmp_path / "report.html"
 
     completed = subprocess.run(
@@ -36,7 +28,7 @@ def test_cli_produces_html(tmp_path, coverage_folder):
             "--kaiju_table", str(FIXTURES / "kaiju.tsv"),
             "--fastp_json", str(FIXTURES / "fastp.json"),
             "--flagstat_file", str(FIXTURES / "flagstat.txt"),
-            "--coverage_folder", str(coverage_folder),
+            "--mosdepth_regions", str(FIXTURES / "mosdepth_regions.bed.gz"),
             "--output", str(output),
             "--sample_name", "smoke_test",
         ],

@@ -37,14 +37,14 @@ make all-checks
 
 ```bash
 reporthanter \
-    --blastn_file    results.csv \
-    --kraken_file    kraken.tsv \
-    --kaiju_table    kaiju.tsv \
-    --fastp_json     fastp.json \
-    --flagstat_file  flagstat.txt \
-    --coverage_folder plots/ \
-    --output         report.html \
-    --sample_name    "MySample"
+    --blastn_file       results.csv \
+    --kraken_file       kraken.tsv \
+    --kaiju_table       kaiju.tsv \
+    --fastp_json        fastp.json \
+    --flagstat_file     flagstat.txt \
+    --mosdepth_regions  sample.regions.bed.gz \
+    --output            report.html \
+    --sample_name       "MySample"
 ```
 
 | Flag | Description |
@@ -54,7 +54,8 @@ reporthanter \
 | `--kaiju_table` | Kaiju TSV table |
 | `--fastp_json` | FastP JSON report |
 | `--flagstat_file` | BWA `flagstat` log |
-| `--coverage_folder` | Directory containing per-reference coverage SVGs |
+| `--mosdepth_regions` | mosdepth `regions.bed.gz` (drives the coverage trace) |
+| `--quast_report` | Optional QUAST `report.tsv` (adds an assembly sub-tab) |
 | `--output` | Output HTML path |
 | `--sample_name` | Optional sample identifier |
 | `--config_file` | Optional JSON configuration file |
@@ -77,7 +78,7 @@ report = create_report(
     kaiju_table="kaiju.tsv",
     fastp_json="fastp.json",
     flagstat_file="flagstat.txt",
-    coverage_folder="plots/",
+    mosdepth_regions="sample.regions.bed.gz",
     sample_name="MySample",
 )
 report.save("my_report.html")
@@ -96,7 +97,7 @@ report = generator.generate_report(
     kaiju_table="kaiju.tsv",
     fastp_json="fastp.json",
     flagstat_file="flagstat.txt",
-    coverage_folder="plots/",
+    mosdepth_regions="sample.regions.bed.gz",
     sample_name="MySample",
 )
 generator.save_report(report, "report.html", title="My Analysis Report")

@@ -38,13 +38,13 @@ class TestNewAPI:
         sig = inspect.signature(create_report)
         
         expected_params = {
-            'blastn_file', 'kraken_file', 'kaiju_table', 
-            'fastp_json', 'flagstat_file', 'coverage_folder',
-            'secondary_flagstat_file', 'secondary_host', 
-            'sample_name', 'config'
+            'blastn_file', 'kraken_file', 'kaiju_table',
+            'fastp_json', 'flagstat_file', 'mosdepth_regions',
+            'secondary_flagstat_file', 'secondary_host',
+            'sample_name', 'quast_report', 'config'
         }
         actual_params = set(sig.parameters.keys())
-        
+
         assert expected_params == actual_params
     
     def test_processors_can_be_imported_individually(self):

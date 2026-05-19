@@ -56,11 +56,10 @@ class ReportGenerator:
         kaiju_table: str | Path,
         fastp_json: str | Path,
         flagstat_file: str | Path,
-        coverage_folder: str | Path | None = None,
+        mosdepth_regions: str | Path,
         secondary_flagstat_file: str | Path | None = None,
         secondary_host: str | None = None,
         sample_name: str | None = None,
-        mosdepth_regions: str | Path | None = None,
         quast_report: str | Path | None = None,
     ) -> pn.Column:
         """Generate the complete report.
@@ -100,7 +99,6 @@ class ReportGenerator:
         coverage_section = self._build_section(
             "Alignment Coverage",
             self.sections["coverage"].generate_section,
-            coverage_folder=coverage_folder,
             mosdepth_regions=mosdepth_regions,
         )
 

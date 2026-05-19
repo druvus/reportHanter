@@ -23,7 +23,8 @@ def parse_args():
         epilog="""Examples:
   reporthanter --blastn_file results.csv --kraken_file kraken.tsv \
                --kaiju_table kaiju.tsv --fastp_json fastp.json \
-               --flagstat_file flagstat.txt --coverage_folder plots/ \
+               --flagstat_file flagstat.txt \
+               --mosdepth_regions sample.regions.bed.gz \
                --output report.html --sample_name "Sample1"
 """,
     )
@@ -33,23 +34,13 @@ def parse_args():
     parser.add_argument("--fastp_json", required=True, help="Path to the fastp JSON report file.")
     parser.add_argument("--flagstat_file", required=True, help="Path to the human flagstat file.")
     parser.add_argument(
-        "--coverage_folder",
-        default=None,
-        help=(
-            "Path to a folder of pre-rendered coverage plot SVG files "
-            "(e.g. the bam2plot output directory). Optional when "
-            "--mosdepth_regions is supplied; at least one of the two "
-            "must be given."
-        ),
-    )
-    parser.add_argument(
         "--mosdepth_regions",
-        default=None,
+        required=True,
         help=(
             "Path to a mosdepth regions BED file (e.g. "
             "<sample>.regions.bed.gz produced by 'mosdepth --by N'). "
-            "When supplied, the report renders interactive Altair "
-            "coverage traces per reference instead of embedding SVGs."
+            "The report renders interactive Altair coverage traces "
+            "per reference from this file."
         ),
     )
     parser.add_argument(
@@ -122,7 +113,6 @@ def main():
             kaiju_table=args.kaiju_table,
             fastp_json=args.fastp_json,
             flagstat_file=args.flagstat_file,
-            coverage_folder=args.coverage_folder,
             mosdepth_regions=args.mosdepth_regions,
             quast_report=args.quast_report,
             secondary_flagstat_file=args.secondary_flagstat_file,
@@ -173,23 +163,13 @@ def validate_inputs(args) -> None:
         elif not file_path.is_file():
             errors.append(f"{name} is not a file: {path}")
 
-    # Coverage source: at least one of coverage_folder or mosdepth_regions
-    if not args.coverage_folder and not args.mosdepth_regions:
-        errors.append("At least one of --coverage_folder or --mosdepth_regions must be supplied.")
-    if args.coverage_folder:
-        coverage_path = Path(args.coverage_folder)
-        if not coverage_path.exists():
-            errors.append(f"Coverage folder does not exist: {args.coverage_folder}")
-        elif not coverage_path.is_dir():
-            errors.append(f"Coverage folder is not a directory: {args.coverage_folder}")
-    if args.mosdepth_regions:
-        regions_path = Path(args.mosdepth_regions)
-        if not regions_path.exists():
-            errors.append(f"Mosdepth regions file does not exist: {args.mosdepth_regions}")
-        elif not regions_path.is_file():
-            errors.append(f"Mosdepth regions path is not a file: {args.mosdepth_regions}")
-        elif regions_path.stat().st_size == 0:
-            errors.append(f"Mosdepth regions file is empty: {args.mosdepth_regions}")
+    regions_path = Path(args.mosdepth_regions)
+    if not regions_path.exists():
+        errors.append(f"Mosdepth regions file does not exist: {args.mosdepth_regions}")
+    elif not regions_path.is_file():
+        errors.append(f"Mosdepth regions path is not a file: {args.mosdepth_regions}")
+    elif regions_path.stat().st_size == 0:
+        errors.append(f"Mosdepth regions file is empty: {args.mosdepth_regions}")
     if args.quast_report:
         quast_path = Path(args.quast_report)
         if not quast_path.exists():

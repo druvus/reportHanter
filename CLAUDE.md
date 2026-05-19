@@ -51,7 +51,7 @@ and must remain stable:
 
 ```
 --blastn_file --kraken_file --kaiju_table --fastp_json \
---flagstat_file --coverage_folder --output \
+--flagstat_file --mosdepth_regions --output \
 [--sample_name --config_file --log_level --validate_only]
 ```
 

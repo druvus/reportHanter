@@ -33,6 +33,7 @@ try:
         VisualizationConfigManager,
         create_visualization_examples,
     )
+
     _VISUALIZATION_AVAILABLE = True
 except ImportError:
     _VISUALIZATION_AVAILABLE = False
@@ -60,24 +61,36 @@ __all__ = [
 ]
 
 
-# Convenience function for backwards compatibility
-def create_report(blastn_file, kraken_file, kaiju_table, fastp_json,
-                 flagstat_file, coverage_folder, secondary_flagstat_file=None,
-                 secondary_host=None, sample_name=None, config=None):
-    """
-    Convenience function that mimics the old panel_report API.
-    
-    This provides a smooth transition path for users upgrading from 0.2.x.
+# Convenience function for high-level callers
+def create_report(
+    blastn_file,
+    kraken_file,
+    kaiju_table,
+    fastp_json,
+    flagstat_file,
+    mosdepth_regions,
+    secondary_flagstat_file=None,
+    secondary_host=None,
+    sample_name=None,
+    quast_report=None,
+    config=None,
+):
+    """High-level wrapper around :class:`ReportGenerator`.
+
+    The ``coverage_folder`` argument used by 0.2.x has been removed in
+    line with virusHanter2 dropping its bam2plot rule; coverage is now
+    sourced from a mosdepth ``regions.bed.gz``.
     """
     generator = ReportGenerator(config or DefaultConfig())
     return generator.generate_report(
         blastn_file=blastn_file,
-        kraken_file=kraken_file, 
+        kraken_file=kraken_file,
         kaiju_table=kaiju_table,
         fastp_json=fastp_json,
         flagstat_file=flagstat_file,
-        coverage_folder=coverage_folder,
+        mosdepth_regions=mosdepth_regions,
+        quast_report=quast_report,
         secondary_flagstat_file=secondary_flagstat_file,
         secondary_host=secondary_host,
-        sample_name=sample_name
+        sample_name=sample_name,
     )
