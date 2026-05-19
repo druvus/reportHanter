@@ -11,6 +11,7 @@ import panel as pn
 from ..core.config import DefaultConfig
 from ..core.interfaces import ReportSection
 from ..processors.blast_processor import BlastPlotGenerator, BlastProcessor
+from ..processors.coverage_processor import CoveragePlotGenerator, CoverageProcessor
 from ..processors.fastp_processor import FastpProcessor
 from ..processors.flagstat_processor import FlagstatProcessor
 from ..processors.kaiju_processor import KaijuPlotGenerator, KaijuProcessor
@@ -309,32 +310,74 @@ class CoverageSection(_SectionBase):
         return "Alignment Coverage"
 
     def generate_section(self, **kwargs) -> pn.Column:
-        """Generate coverage plots section."""
+        """Generate coverage plots section.
+
+        Prefers an interactive Altair trace built from a mosdepth
+        regions BED when ``mosdepth_regions`` is supplied. Falls back to
+        the legacy SVG embedding when only ``coverage_folder`` is
+        available so older callers keep working unchanged.
+        """
         coverage_folder = kwargs.get("coverage_folder")
+        mosdepth_regions = kwargs.get("mosdepth_regions")
 
-        if not coverage_folder:
-            raise ValueError("coverage_folder is required")
+        if not coverage_folder and not mosdepth_regions:
+            raise ValueError("coverage_folder or mosdepth_regions is required")
 
-        coverage_path = Path(coverage_folder)
+        header = self._create_header("## Alignment Coverage", height=80)
+        tabs = pn.Tabs()
+
+        rendered = False
+        if mosdepth_regions:
+            rendered = self._append_interactive_tabs(tabs, mosdepth_regions)
+
+        if not rendered and coverage_folder:
+            rendered = self._append_svg_tabs(tabs, Path(coverage_folder))
+
+        if not rendered:
+            tabs.append(
+                pn.pane.Markdown("## No Coverage Plots Available", name="No Coverage Plots")
+            )
+            self.logger.warning("No coverage data available")
+
+        return pn.Column(header, tabs)
+
+    def _append_interactive_tabs(self, tabs: pn.Tabs, regions_path: str | Path) -> bool:
+        """Render one Altair tab per reference; return True if anything added."""
+        processor = CoverageProcessor(self.config.get_config("coverage"))
+        plot_generator = CoveragePlotGenerator(self.config.get_config("plotting"))
+
+        try:
+            df = processor.process(regions_path)
+        except Exception as e:
+            self.logger.warning(f"Could not read mosdepth regions {regions_path}: {e}")
+            return False
+
+        if df.empty:
+            self.logger.warning(f"Mosdepth regions file is empty: {regions_path}")
+            return False
+
+        for chrom, sub in df.groupby("chrom", sort=True):
+            chart = plot_generator.generate_plot(sub, chrom=str(chrom)).interactive()
+            tabs.append(pn.pane.Vega(chart, sizing_mode="stretch_both", name=str(chrom)))
+
+        self.logger.info(
+            f"Added {df['chrom'].nunique()} interactive coverage plots from {regions_path}"
+        )
+        return True
+
+    def _append_svg_tabs(self, tabs: pn.Tabs, coverage_path: Path) -> bool:
+        """Legacy path: embed bam2plot SVGs. Returns True if anything added."""
+        if not coverage_path.exists() or not coverage_path.is_dir():
+            self.logger.warning(f"Coverage folder missing: {coverage_path}")
+            return False
+
         coverage_plots = sorted(
             x for x in coverage_path.iterdir() if x.suffix == ".svg" and not x.name.startswith("._")
         )
+        if not coverage_plots:
+            return False
 
-        header = self._create_header("## Alignment Coverage", height=80)
-
-        tabs = pn.Tabs()
-        if coverage_plots:
-            for plot_file in coverage_plots:
-                # Use the full stem as the tab label. Tabulator/Panel
-                # tabs scroll horizontally when names overflow; this is
-                # less harmful than silently dropping the suffix that
-                # distinguishes one accession from another.
-                svg_pane = pn.pane.SVG(plot_file, sizing_mode="stretch_width", name=plot_file.stem)
-                tabs.append(svg_pane)
-            self.logger.info(f"Added {len(coverage_plots)} coverage plots to report")
-        else:
-            no_plots = pn.pane.Markdown("## No Coverage Plots Available", name="No Coverage Plots")
-            tabs.append(no_plots)
-            self.logger.warning("No coverage plots found")
-
-        return pn.Column(header, tabs)
+        for plot_file in coverage_plots:
+            tabs.append(pn.pane.SVG(plot_file, sizing_mode="stretch_width", name=plot_file.stem))
+        self.logger.info(f"Added {len(coverage_plots)} coverage plots to report")
+        return True
