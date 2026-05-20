@@ -327,11 +327,14 @@ class CoverageSection(_SectionBase):
         """Generate coverage plots section.
 
         Renders one interactive Altair trace per reference from the
-        mosdepth ``regions.bed.gz`` produced upstream. The bam2plot
-        SVG fallback was retired together with the bam2plot rule in
-        virusHanter2.
+        mosdepth ``regions.bed.gz`` produced upstream. If a
+        ``virus_names`` TSV is supplied (a sidecar emitted by
+        virusHanter2's ``bwa_align_to_kraken_hits`` rule), tab labels
+        carry both the chrom (accession) and the friendly species
+        name as ``<chrom> -- <name>``.
         """
         mosdepth_regions = kwargs.get("mosdepth_regions")
+        virus_names = kwargs.get("virus_names")
         if not mosdepth_regions:
             raise ValueError("mosdepth_regions is required")
 
@@ -354,9 +357,26 @@ class CoverageSection(_SectionBase):
             self.logger.warning(f"Mosdepth regions file empty or unreadable: {mosdepth_regions}")
             return pn.Column(header, tabs)
 
+        chrom_to_name: dict[str, str] = {}
+        if virus_names:
+            try:
+                names_df = pd.read_csv(virus_names, sep="\t")
+                if {"chrom", "name"}.issubset(names_df.columns):
+                    chrom_to_name = dict(
+                        zip(
+                            names_df["chrom"].astype(str),
+                            names_df["name"].fillna("").astype(str),
+                            strict=False,
+                        )
+                    )
+            except Exception as e:  # noqa: BLE001
+                self.logger.warning(f"Could not read virus-names sidecar {virus_names}: {e}")
+
         for chrom, sub in df.groupby("chrom", sort=True):
             chart = plot_generator.generate_plot(sub, chrom=str(chrom)).interactive()
-            tabs.append(pn.pane.Vega(chart, sizing_mode="stretch_both", name=str(chrom)))
+            species = chrom_to_name.get(str(chrom), "")
+            label = f"{chrom} — {species}" if species else str(chrom)
+            tabs.append(pn.pane.Vega(chart, sizing_mode="stretch_both", name=label))
 
         self.logger.info(
             f"Added {df['chrom'].nunique()} interactive coverage plots from {mosdepth_regions}"

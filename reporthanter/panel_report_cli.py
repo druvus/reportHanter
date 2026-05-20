@@ -44,6 +44,17 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--virus_names",
+        default=None,
+        help=(
+            "Optional TSV with columns 'chrom', 'tax_id', 'name' "
+            "mapping mosdepth chrom ids (typically RefSeq accessions) "
+            "to a friendly virus species name. When supplied, the "
+            "Alignment Coverage tabs read '<chrom> -- <name>' instead "
+            "of just the chrom id."
+        ),
+    )
+    parser.add_argument(
         "--quast_report",
         default=None,
         help=(
@@ -114,6 +125,7 @@ def main():
             fastp_json=args.fastp_json,
             flagstat_file=args.flagstat_file,
             mosdepth_regions=args.mosdepth_regions,
+            virus_names=args.virus_names,
             quast_report=args.quast_report,
             secondary_flagstat_file=args.secondary_flagstat_file,
             secondary_host=args.secondary_host,
@@ -170,6 +182,14 @@ def validate_inputs(args) -> None:
         errors.append(f"Mosdepth regions path is not a file: {args.mosdepth_regions}")
     elif regions_path.stat().st_size == 0:
         errors.append(f"Mosdepth regions file is empty: {args.mosdepth_regions}")
+    if args.virus_names:
+        names_path = Path(args.virus_names)
+        if not names_path.exists():
+            errors.append(f"Virus names TSV does not exist: {args.virus_names}")
+        elif not names_path.is_file():
+            errors.append(f"Virus names path is not a file: {args.virus_names}")
+        elif names_path.stat().st_size == 0:
+            errors.append(f"Virus names TSV is empty: {args.virus_names}")
     if args.quast_report:
         quast_path = Path(args.quast_report)
         if not quast_path.exists():

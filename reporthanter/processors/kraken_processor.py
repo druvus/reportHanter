@@ -42,7 +42,16 @@ class KrakenProcessor(BaseDataProcessor):
         return True
 
     def _process_file(self, file_path: str | Path) -> pd.DataFrame:
-        """Process Kraken TSV file into DataFrame."""
+        """Process Kraken TSV file into DataFrame.
+
+        The ``domain`` column is carried down from the nearest D/U/R/R1
+        parent. Including R1 lets the viral-only Kraken2 databases
+        (e.g. ``k2_viral_*``) tag Viruses correctly — those DBs place
+        Viruses at ``tax_lvl='R1'`` because they have no sibling
+        superkingdom requiring a domain level. The standard pluspf DB
+        is unaffected because its only R1 row ("cellular organisms")
+        is immediately overridden by the next D row (Bacteria).
+        """
         df = pd.read_csv(
             file_path,
             sep="\t",
@@ -54,7 +63,7 @@ class KrakenProcessor(BaseDataProcessor):
             df.assign(name=lambda x: x.name.str.strip())
             .assign(
                 domain=lambda x: np.select(
-                    [x.tax_lvl.isin(["D", "U", "R"])], [x.name], default=pd.NA
+                    [x.tax_lvl.isin(["D", "U", "R", "R1"])], [x.name], default=pd.NA
                 )
             )
             .ffill()

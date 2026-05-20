@@ -72,6 +72,7 @@ class ReportGenerator:
         secondary_host: str | None = None,
         sample_name: str | None = None,
         quast_report: str | Path | None = None,
+        virus_names: str | Path | None = None,
     ) -> pn.Column:
         """Generate the complete report.
 
@@ -111,6 +112,7 @@ class ReportGenerator:
             "Alignment Coverage",
             self.sections["coverage"].generate_section,
             mosdepth_regions=mosdepth_regions,
+            virus_names=virus_names,
         )
 
         try:
