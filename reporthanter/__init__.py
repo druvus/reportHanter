@@ -11,57 +11,44 @@ from .core.exceptions import (
     ReportHanterError,
 )
 from .processors.blast_processor import BlastPlotGenerator, BlastProcessor
+from .processors.coverage_processor import CoveragePlotGenerator, CoverageProcessor
 from .processors.fastp_processor import FastpProcessor
 from .processors.flagstat_processor import FlagstatProcessor
+from .processors.genomad_processor import GenomadProcessor
 from .processors.kaiju_processor import KaijuPlotGenerator, KaijuProcessor
-
-# Individual processors for advanced usage
 from .processors.kraken_processor import KrakenPlotGenerator, KrakenProcessor
+from .processors.quast_processor import QuastProcessor
 
 # Main report generator
 from .report.generator import ReportGenerator
 
-# Enhanced visualization system (new in 0.3.0+). Optional; if the
-# visualization deps are not installed, these names are simply not exported.
-try:
-    from .visualization import (  # noqa: F401
-        ChartType,
-        ColorScheme,
-        EnhancedReportGenerator,
-        LayoutTemplate,
-        VisualizationConfig,
-        VisualizationConfigManager,
-        create_visualization_examples,
-    )
-
-    _VISUALIZATION_AVAILABLE = True
-except ImportError:
-    _VISUALIZATION_AVAILABLE = False
-
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 __all__ = [
-    "DefaultConfig",
-    "ConfigurationError",
-    "DataProcessingError",
-    "FileValidationError",
-    "PlotGenerationError",
-    "ReportGenerationError",
-    "ReportHanterError",
     "BlastPlotGenerator",
     "BlastProcessor",
+    "ConfigurationError",
+    "CoveragePlotGenerator",
+    "CoverageProcessor",
+    "DataProcessingError",
+    "DefaultConfig",
     "FastpProcessor",
+    "FileValidationError",
     "FlagstatProcessor",
+    "GenomadProcessor",
     "KaijuPlotGenerator",
     "KaijuProcessor",
     "KrakenPlotGenerator",
     "KrakenProcessor",
+    "PlotGenerationError",
+    "QuastProcessor",
+    "ReportGenerationError",
     "ReportGenerator",
+    "ReportHanterError",
     "create_report",
 ]
 
 
-# Convenience function for high-level callers
 def create_report(
     blastn_file,
     kraken_file,
@@ -73,13 +60,16 @@ def create_report(
     secondary_host=None,
     sample_name=None,
     quast_report=None,
+    virus_names=None,
+    genomad_summary=None,
     config=None,
 ):
     """High-level wrapper around :class:`ReportGenerator`.
 
-    The ``coverage_folder`` argument used by 0.2.x has been removed in
-    line with virusHanter2 dropping its bam2plot rule; coverage is now
-    sourced from a mosdepth ``regions.bed.gz``.
+    Produces a single self-contained HTML report for one sample.
+    Coverage is sourced from a mosdepth ``regions.bed.gz``; the
+    legacy ``coverage_folder`` parameter from 0.2.x was removed when
+    virusHanter2 retired its bam2plot rule.
     """
     generator = ReportGenerator(config or DefaultConfig())
     return generator.generate_report(
@@ -90,6 +80,8 @@ def create_report(
         flagstat_file=flagstat_file,
         mosdepth_regions=mosdepth_regions,
         quast_report=quast_report,
+        virus_names=virus_names,
+        genomad_summary=genomad_summary,
         secondary_flagstat_file=secondary_flagstat_file,
         secondary_host=secondary_host,
         sample_name=sample_name,

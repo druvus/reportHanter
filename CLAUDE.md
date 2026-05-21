@@ -20,19 +20,22 @@ original `virusHanter`. See
 
 ```
 reporthanter/
-  core/         Configuration, exceptions, abstract bases, interfaces
+  core/         Configuration, exceptions, abstract bases, interfaces,
+                colour palettes (palettes.py)
   processors/   One module per input tool (blast, coverage, fastp,
-                flagstat, kaiju, kraken, quast)
+                flagstat, genomad, kaiju, kraken, quast)
   report/       ReportGenerator and section assembly
-  visualization/  Optional enhanced plotting layer (parallel
-                  EnhancedReportGenerator surface, not on the
-                  default CLI path)
   panel_report_cli.py   CLI entry point (panel_report_cli:main)
 docs/           Long-form documentation (see docs/README.md)
-examples/       Configuration examples and demo scripts
+examples/       Configuration examples
 scripts/        Structural and compatibility checks
 tests/          pytest suite
 ```
+
+There is one canonical rendering path: `ReportGenerator`. The
+parallel `EnhancedReportGenerator` / `VisualizationConfig` /
+`LayoutTemplate` surface that shipped in 0.3.x was retired in 0.4.0;
+do not re-introduce a second renderer.
 
 ## Entry points
 
@@ -71,7 +74,11 @@ Two surfaces are exported from `reporthanter` and must keep working:
    `QuastProcessor`) and matching plot generators.
 
 Do not re-introduce the legacy free functions removed in 0.3.0
-(`panel_report`, `wrangle_kraken`, `plot_kraken`, etc.).
+(`panel_report`, `wrangle_kraken`, `plot_kraken`, etc.) or the
+0.3.x `EnhancedReportGenerator` / `VisualizationConfig` /
+`LayoutTemplate` / `ColorScheme` / `ChartType` /
+`VisualizationConfigManager` / `create_visualization_examples`
+surface (retired in 0.4.0).
 
 ## Conventions
 

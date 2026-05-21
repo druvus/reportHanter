@@ -11,6 +11,7 @@ import pandas as pd
 
 from ..core.base import BaseDataProcessor, BasePlotGenerator
 from ..core.exceptions import DataProcessingError
+from ..core.palettes import TAXONOMY_COLORS
 
 
 class BlastProcessor(BaseDataProcessor):
@@ -123,15 +124,24 @@ class BlastPlotGenerator(BasePlotGenerator):
     )
 
     def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
-        """Create BLAST results bar chart."""
+        """Create BLAST results bar chart.
+
+        BLAST contig counts are integer-valued, so no in-bar
+        percentage label is drawn — but the same rounded-corner /
+        white-stroke / nearest-point hover treatment used in the
+        Kraken and Kaiju panes is applied for visual consistency.
+        Colour cycles through the ``mixed`` taxonomy palette.
+        """
         title = kwargs.get("title", "BLASTN of Contigs")
 
         if data.empty or "match_name" not in data.columns:
             return self._empty_chart(title="No classified contigs")
 
-        chart = (
+        hover = alt.selection_point(name="blast_hover", on="mouseover", empty=False, nearest=True)
+
+        return (
             alt.Chart(data, title=title)
-            .mark_bar()
+            .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1, opacity=0.85)
             .encode(
                 alt.X(
                     "count(match_name):Q",
@@ -139,12 +149,17 @@ class BlastPlotGenerator(BasePlotGenerator):
                     axis=alt.Axis(format="d", tickMinStep=1),
                 ),
                 alt.Y("match_name:N", sort="-x", title=None),
-                alt.Color("match_name:N", title=None, legend=None),
+                color=alt.Color(
+                    "match_name:N",
+                    title=None,
+                    legend=None,
+                    scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
+                ),
+                opacity=alt.condition(hover, alt.value(1.0), alt.value(0.85)),
                 tooltip=[
                     alt.Tooltip("match_name:N", title="Match"),
                     alt.Tooltip("count(match_name):Q", title="Number of contigs"),
                 ],
             )
+            .add_params(hover)
         )
-
-        return chart

@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-05-21
+
+Breaking release that consolidates onto a single canonical
+rendering path.
+
+### Removed (BREAKING)
+- The `reporthanter.visualization` package is gone:
+  `EnhancedReportGenerator`, `VisualizationConfig`,
+  `VisualizationConfigManager`, `LayoutTemplate`, `ColorScheme`,
+  `ChartType`, `create_visualization_examples`. Configuration files
+  that referenced those names no longer apply.
+- `docs/user-guide/VISUAL_IMPROVEMENTS_GUIDE.md` and
+  `docs/developer/VISUAL_IMPROVEMENTS_SUMMARY.md`.
+- `examples/demos/enhanced_visualization_demo.py` and
+  `examples/configurations/config_example.json`.
+- The optional `_VISUALIZATION_AVAILABLE` import block in
+  `reporthanter/__init__.py`.
+
+### Added
+- New `reporthanter.core.palettes` module exporting
+  `TAXONOMY_COLORS`, `QUALITY_GRADIENTS`, `SCIENTIFIC_PALETTES`
+  (harvested from the retired visualisation layer for use by the
+  canonical plot generators).
+
+### Changed
+- Bar charts in `KrakenPlotGenerator`, `KaijuPlotGenerator` and
+  `BlastPlotGenerator` adopt rounded corners, a thin white stroke,
+  nearest-point hover highlighting and (Kraken/Kaiju only)
+  inline percentage labels on hits above 2 % — a uniform scientific
+  look across the report's three classification panes.
+- `FlagstatPlotGenerator` swaps the hard-coded `dark2` scheme for
+  the head and tail of the `QUALITY_GRADIENTS["good_to_bad"]`
+  palette (unaligned = green, aligned = red).
+
+### Migration
+- Code that imported `EnhancedReportGenerator` or
+  `VisualizationConfig` must switch to `ReportGenerator` and the
+  individual processors. The CLI surface is unchanged from 0.3.1.
+
 ## [0.3.1] - 2026-05-21
 
 Patch release rolling up two weeks of stability fixes against real

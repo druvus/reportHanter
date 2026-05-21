@@ -41,7 +41,8 @@ class TestNewAPI:
             'blastn_file', 'kraken_file', 'kaiju_table',
             'fastp_json', 'flagstat_file', 'mosdepth_regions',
             'secondary_flagstat_file', 'secondary_host',
-            'sample_name', 'quast_report', 'config'
+            'sample_name', 'quast_report', 'virus_names',
+            'genomad_summary', 'config'
         }
         actual_params = set(sig.parameters.keys())
 
@@ -138,7 +139,7 @@ class TestModuleStructure:
         
         # Version should be available
         assert hasattr(reporthanter, '__version__')
-        assert reporthanter.__version__ == "0.3.1"
+        assert reporthanter.__version__ == "0.4.0"
     
     def test_legacy_modules_removed(self):
         """Test that legacy modules are gone."""
