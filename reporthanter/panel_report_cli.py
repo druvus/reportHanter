@@ -28,7 +28,17 @@ def parse_args():
                --output report.html --sample_name "Sample1"
 """,
     )
-    parser.add_argument("--blastn_file", required=True, help="Path to the BLASTN CSV file.")
+    parser.add_argument(
+        "--blastn_file",
+        required=True,
+        action="append",
+        help=(
+            "Path to a BLASTN merged CSV. Repeat once per assembler to "
+            "render a multi-assembler contig table. Each CSV is "
+            "expected to carry an ``assembler`` column; rows without "
+            "one are tagged 'unknown'."
+        ),
+    )
     parser.add_argument("--kraken_file", required=True, help="Path to the Kraken file.")
     parser.add_argument("--kaiju_table", required=True, help="Path to the Kaiju TSV table file.")
     parser.add_argument("--fastp_json", required=True, help="Path to the fastp JSON report file.")
@@ -57,20 +67,23 @@ def parse_args():
     parser.add_argument(
         "--quast_report",
         default=None,
+        action="append",
         help=(
-            "Optional path to a QUAST report.tsv. When supplied, a "
-            "small assembly-summary table is added to the Alignment "
-            "Stats section as an extra sub-tab."
+            "Optional path to a QUAST report.tsv. Repeat once per "
+            "assembler. When supplied, a small assembly-summary table "
+            "is added to the Alignment Stats section as an extra "
+            "sub-tab."
         ),
     )
     parser.add_argument(
         "--genomad_summary",
         default=None,
+        action="append",
         help=(
             "Optional path to a geNomad <sample>_virus_summary.tsv. "
-            "When supplied, geNomad's viral-contig calls are added "
-            "to the Classification of Contigs section as an extra "
-            "sub-tab."
+            "Repeat once per assembler. When supplied, geNomad's "
+            "viral-contig calls are added to the Classification of "
+            "Contigs section as an extra sub-tab."
         ),
     )
     parser.add_argument(
@@ -129,15 +142,15 @@ def main():
 
         generator = ReportGenerator(config)
         report = generator.generate_report(
-            blastn_file=args.blastn_file,
+            blastn_files=args.blastn_file,
             kraken_file=args.kraken_file,
             kaiju_table=args.kaiju_table,
             fastp_json=args.fastp_json,
             flagstat_file=args.flagstat_file,
             mosdepth_regions=args.mosdepth_regions,
             virus_names=args.virus_names,
-            quast_report=args.quast_report,
-            genomad_summary=args.genomad_summary,
+            quast_reports=args.quast_report,
+            genomad_summaries=args.genomad_summary,
             secondary_flagstat_file=args.secondary_flagstat_file,
             secondary_host=args.secondary_host,
             sample_name=sample_name,
@@ -156,7 +169,6 @@ def main():
 def validate_inputs(args) -> None:
     """Validate all input files exist and are readable."""
     required_files = {
-        "BLASTN file": args.blastn_file,
         "Kraken file": args.kraken_file,
         "Kaiju table": args.kaiju_table,
         "FastP JSON": args.fastp_json,
@@ -177,6 +189,19 @@ def validate_inputs(args) -> None:
             errors.append(f"{name} is not a file: {path}")
         elif file_path.stat().st_size == 0:
             errors.append(f"{name} is empty: {path}")
+
+    # `--blastn_file` is required and may be repeated; validate each entry.
+    blastn_paths = args.blastn_file or []
+    if not blastn_paths:
+        errors.append("At least one --blastn_file is required")
+    for path in blastn_paths:
+        file_path = Path(path)
+        if not file_path.exists():
+            errors.append(f"BLASTN file does not exist: {path}")
+        elif not file_path.is_file():
+            errors.append(f"BLASTN file is not a file: {path}")
+        # Empty BLAST CSVs are tolerated; they tend to mean the assembler
+        # produced no contigs and the report still needs to render.
 
     # Check optional files
     for name, path in optional_files.items():
@@ -201,22 +226,22 @@ def validate_inputs(args) -> None:
             errors.append(f"Virus names path is not a file: {args.virus_names}")
         elif names_path.stat().st_size == 0:
             errors.append(f"Virus names TSV is empty: {args.virus_names}")
-    if args.quast_report:
-        quast_path = Path(args.quast_report)
+    for q in (args.quast_report or []):
+        quast_path = Path(q)
         if not quast_path.exists():
-            errors.append(f"QUAST report does not exist: {args.quast_report}")
+            errors.append(f"QUAST report does not exist: {q}")
         elif not quast_path.is_file():
-            errors.append(f"QUAST report path is not a file: {args.quast_report}")
+            errors.append(f"QUAST report path is not a file: {q}")
         elif quast_path.stat().st_size == 0:
-            errors.append(f"QUAST report is empty: {args.quast_report}")
-    if args.genomad_summary:
-        gp = Path(args.genomad_summary)
+            errors.append(f"QUAST report is empty: {q}")
+    for g in (args.genomad_summary or []):
+        gp = Path(g)
         if not gp.exists():
-            errors.append(f"geNomad summary does not exist: {args.genomad_summary}")
+            errors.append(f"geNomad summary does not exist: {g}")
         elif not gp.is_file():
-            errors.append(f"geNomad summary path is not a file: {args.genomad_summary}")
+            errors.append(f"geNomad summary path is not a file: {g}")
         elif gp.stat().st_size == 0:
-            errors.append(f"geNomad summary is empty: {args.genomad_summary}")
+            errors.append(f"geNomad summary is empty: {g}")
 
     # Check output directory is writable
     output_path = Path(args.output)

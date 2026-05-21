@@ -78,7 +78,9 @@ class AlignmentStatsSection(_SectionBase):
         fastp_json = kwargs.get("fastp_json")
         secondary_flagstat_file = kwargs.get("secondary_flagstat_file")
         secondary_host = kwargs.get("secondary_host", "Secondary")
-        quast_report = kwargs.get("quast_report")
+        quast_reports = kwargs.get("quast_reports")
+        if not quast_reports and kwargs.get("quast_report"):
+            quast_reports = [kwargs["quast_report"]]
 
         if not flagstat_file or not fastp_json:
             raise ValueError("flagstat_file and fastp_json are required")
@@ -120,15 +122,15 @@ class AlignmentStatsSection(_SectionBase):
         tab_panes: list = [flagstat_column, fastp_table]
 
         # Optional QUAST assembly summary, supplied by virusHanter2 when
-        # the QUAST flag is on. Sits next to FastP in the sub-tab strip
-        # since both are sample-level QC artefacts.
-        if quast_report:
-            try:
-                quast_processor = QuastProcessor(self.config.get_config("quast"))
-                quast_data = quast_processor.process(quast_report)
-                tab_panes.append(quast_processor.create_summary_table(quast_data))
-            except Exception as e:  # noqa: BLE001
-                self.logger.warning(f"Could not render QUAST report {quast_report}: {e}")
+        # the QUAST flag is on. One sub-tab per (sample, assembler).
+        if quast_reports:
+            for qpath in quast_reports:
+                try:
+                    quast_processor = QuastProcessor(self.config.get_config("quast"))
+                    quast_data = quast_processor.process(qpath)
+                    tab_panes.append(quast_processor.create_summary_table(quast_data))
+                except Exception as e:  # noqa: BLE001
+                    self.logger.warning(f"Could not render QUAST report {qpath}: {e}")
 
         tabs = pn.Tabs(*tab_panes)
         return pn.Column(header, tabs)
@@ -229,18 +231,50 @@ class ContigClassificationSection(_SectionBase):
         return "Classification of Contigs"
 
     def generate_section(self, **kwargs) -> pn.Column:
-        """Generate contig classification section."""
-        blastn_file = kwargs.get("blastn_file")
-        genomad_summary = kwargs.get("genomad_summary")
+        """Generate contig classification section.
 
-        if not blastn_file:
-            raise ValueError("blastn_file is required")
+        Accepts a list of BLAST merged CSVs (one per assembler).
+        Each CSV is expected to carry an ``assembler`` column written
+        upstream by virusHanter2's ``wrangle_pilon`` rule. Rows
+        without the column are tagged ``unknown`` so the column is
+        always present in the rendered table.
+        """
+        blastn_files = kwargs.get("blastn_files")
+        # Backwards compatibility: tolerate a singular ``blastn_file``
+        # for callers that still pass the legacy parameter name.
+        if not blastn_files and kwargs.get("blastn_file"):
+            blastn_files = [kwargs["blastn_file"]]
+        genomad_summaries = kwargs.get("genomad_summaries")
+        if not genomad_summaries and kwargs.get("genomad_summary"):
+            genomad_summaries = [kwargs["genomad_summary"]]
 
-        # Process BLAST data
+        if not blastn_files:
+            raise ValueError("blastn_files is required")
+
+        # Process BLAST data — concatenate one frame per assembler so
+        # the contig table and the headline bar chart carry the union
+        # of contigs with their assembler tag.
         blast_processor = BlastProcessor(self.config.get_config("blast"))
         blast_plot_generator = BlastPlotGenerator(self.config.get_config("plotting"))
 
-        blast_data = blast_processor.process(blastn_file)
+        per_assembler_frames: list[pd.DataFrame] = []
+        for path in blastn_files:
+            try:
+                frame = blast_processor.process(path)
+            except Exception as e:  # noqa: BLE001
+                self.logger.warning(f"Could not parse BLAST CSV {path}: {e}")
+                continue
+            if frame is None or frame.empty:
+                continue
+            if "assembler" not in frame.columns:
+                frame = frame.assign(assembler="unknown")
+            per_assembler_frames.append(frame)
+        blast_data = (
+            pd.concat(per_assembler_frames, ignore_index=True)
+            if per_assembler_frames
+            else pd.DataFrame()
+        )
+
         blast_plot = blast_plot_generator.generate_plot(blast_data)
 
         # Create table for contig data
@@ -250,11 +284,18 @@ class ContigClassificationSection(_SectionBase):
         else:
             # Clean up table data. sample_id is the same value on every
             # row of a single-sample report and is already shown in the
-            # main banner, so drop it.
+            # main banner, so drop it. Keep `assembler` and move it to
+            # the second position so reviewers can see which assembler
+            # produced each row without horizontal scrolling.
             columns_to_drop = ["name", "matches", "sample_id"]
             table_data = table_data.drop(
                 columns=[col for col in columns_to_drop if col in table_data.columns]
             )
+            if "assembler" in table_data.columns:
+                cols = ["assembler"] + [
+                    c for c in table_data.columns if c != "assembler"
+                ]
+                table_data = table_data[cols]
 
         # Tabulator copy button for the sequence column. Tabulator's
         # built-in row-menu copy works for whole rows; a column formatter
@@ -298,10 +339,21 @@ class ContigClassificationSection(_SectionBase):
 
         download_button.on_click(_download)
 
+        # Per-assembler headline counts for the section intro. Helps
+        # the reviewer see at a glance whether MEGAHIT and metaSPAdes
+        # produced comparable numbers of classified contigs before
+        # diving into the per-row table.
+        if "assembler" in blast_data.columns and not blast_data.empty:
+            counts = blast_data["assembler"].value_counts().sort_index()
+            counts_md = ", ".join(f"{asm}: {n}" for asm, n in counts.items())
+            counts_line = f"Classified contigs by assembler: {counts_md}."
+        else:
+            counts_line = ""
+
         header = self._create_header(
-            """
+            f"""
             ## Classification of Contigs
-            Contigs generated by MEGAHIT were classified using BLASTN.
+            Contigs were classified using BLASTN. {counts_line}
             Select rows and press Ctrl/Cmd-C to copy, or use the
             download button below to export the full table as CSV.
             """
@@ -315,15 +367,18 @@ class ContigClassificationSection(_SectionBase):
         blast_pane = pn.pane.Vega(blast_plot, sizing_mode="stretch_both", name="BLASTN")
         tab_panes: list = [blast_pane, blast_table]
 
-        # Optional geNomad call-table — added as a third sub-tab when
-        # virusHanter2 ran geNomad alongside CheckV.
-        if genomad_summary:
-            try:
-                gp = GenomadProcessor(self.config.get_config("genomad"))
-                gdf = gp.process(genomad_summary)
-                tab_panes.append(gp.create_summary_table(gdf))
-            except Exception as e:  # noqa: BLE001
-                self.logger.warning(f"Could not render geNomad summary {genomad_summary}: {e}")
+        # Optional geNomad call-tables — one sub-tab per assembler
+        # when virusHanter2 ran geNomad alongside CheckV.
+        if genomad_summaries:
+            for gpath in genomad_summaries:
+                try:
+                    gp = GenomadProcessor(self.config.get_config("genomad"))
+                    gdf = gp.process(gpath)
+                    tab_panes.append(gp.create_summary_table(gdf))
+                except Exception as e:  # noqa: BLE001
+                    self.logger.warning(
+                        f"Could not render geNomad summary {gpath}: {e}"
+                    )
 
         tabs = pn.Tabs(*tab_panes)
         return pn.Column(header, tabs, download_button)

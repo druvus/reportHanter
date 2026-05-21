@@ -38,11 +38,15 @@ class TestNewAPI:
         sig = inspect.signature(create_report)
         
         expected_params = {
-            'blastn_file', 'kraken_file', 'kaiju_table',
+            'blastn_files', 'blastn_file',
+            'kraken_file', 'kaiju_table',
             'fastp_json', 'flagstat_file', 'mosdepth_regions',
             'secondary_flagstat_file', 'secondary_host',
-            'sample_name', 'quast_report', 'virus_names',
-            'genomad_summary', 'config'
+            'sample_name',
+            'quast_reports', 'quast_report',
+            'virus_names',
+            'genomad_summaries', 'genomad_summary',
+            'config'
         }
         actual_params = set(sig.parameters.keys())
 
@@ -139,7 +143,7 @@ class TestModuleStructure:
         
         # Version should be available
         assert hasattr(reporthanter, '__version__')
-        assert reporthanter.__version__ == "0.4.2"
+        assert reporthanter.__version__ == "0.5.0"
     
     def test_legacy_modules_removed(self):
         """Test that legacy modules are gone."""

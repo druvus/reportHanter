@@ -62,17 +62,20 @@ class ReportGenerator:
 
     def generate_report(
         self,
-        blastn_file: str | Path,
         kraken_file: str | Path,
         kaiju_table: str | Path,
         fastp_json: str | Path,
         flagstat_file: str | Path,
         mosdepth_regions: str | Path,
+        blastn_files: list[str | Path] | None = None,
+        blastn_file: str | Path | None = None,
         secondary_flagstat_file: str | Path | None = None,
         secondary_host: str | None = None,
         sample_name: str | None = None,
+        quast_reports: list[str | Path] | None = None,
         quast_report: str | Path | None = None,
         virus_names: str | Path | None = None,
+        genomad_summaries: list[str | Path] | None = None,
         genomad_summary: str | Path | None = None,
     ) -> pn.Column:
         """Generate the complete report.
@@ -86,6 +89,19 @@ class ReportGenerator:
         sample_name = sample_name or "Sample"
         self.logger.info(f"Starting report generation for sample: {sample_name}")
 
+        # Normalise single-value / list inputs. Each multi-valued
+        # parameter (blastn_files, quast_reports, genomad_summaries)
+        # may be passed either as a list or via its singular legacy
+        # alias; the section builders always receive a list.
+        blastn_paths = self._coalesce_paths(blastn_files, blastn_file)
+        if not blastn_paths:
+            raise ReportGenerationError(
+                "generate_report requires at least one BLAST CSV "
+                "(pass blastn_files=[...] or blastn_file=...)"
+            )
+        quast_paths = self._coalesce_paths(quast_reports, quast_report)
+        genomad_paths = self._coalesce_paths(genomad_summaries, genomad_summary)
+
         alignment_section = self._build_section(
             "Alignment Stats",
             self.sections["alignment"].generate_section,
@@ -93,7 +109,7 @@ class ReportGenerator:
             fastp_json=fastp_json,
             secondary_flagstat_file=secondary_flagstat_file,
             secondary_host=secondary_host,
-            quast_report=quast_report,
+            quast_reports=quast_paths,
         )
 
         raw_classification_section = self._build_section(
@@ -106,8 +122,8 @@ class ReportGenerator:
         contig_classification_section = self._build_section(
             "Classification of Contigs",
             self.sections["contig_classification"].generate_section,
-            blastn_file=blastn_file,
-            genomad_summary=genomad_summary,
+            blastn_files=blastn_paths,
+            genomad_summaries=genomad_paths,
         )
 
         coverage_section = self._build_section(
@@ -133,6 +149,26 @@ class ReportGenerator:
 
         self.logger.info(f"Report generation completed for sample: {sample_name}")
         return report
+
+    @staticmethod
+    def _coalesce_paths(
+        plural: list[str | Path] | None,
+        singular: str | Path | None,
+    ) -> list[Path]:
+        """Combine an optional plural list and an optional singular
+        path into a single list of ``Path`` objects.
+
+        Lets the high-level API accept either ``blastn_files=[...]``
+        (the multi-assembler shape) or the legacy ``blastn_file=...``
+        without surprising callers that pass both.
+        """
+        items: list[Path] = []
+        for x in (plural or []):
+            if x:
+                items.append(Path(x))
+        if singular:
+            items.append(Path(singular))
+        return items
 
     def _build_section(self, section_name: str, builder, **kwargs):
         """Invoke a section builder, attaching the section name to any

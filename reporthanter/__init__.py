@@ -22,7 +22,7 @@ from .processors.quast_processor import QuastProcessor
 # Main report generator
 from .report.generator import ReportGenerator
 
-__version__ = "0.4.2"
+__version__ = "0.5.0"
 
 __all__ = [
     "BlastPlotGenerator",
@@ -50,37 +50,50 @@ __all__ = [
 
 
 def create_report(
-    blastn_file,
     kraken_file,
     kaiju_table,
     fastp_json,
     flagstat_file,
     mosdepth_regions,
+    blastn_files=None,
+    blastn_file=None,
     secondary_flagstat_file=None,
     secondary_host=None,
     sample_name=None,
+    quast_reports=None,
     quast_report=None,
     virus_names=None,
+    genomad_summaries=None,
     genomad_summary=None,
     config=None,
 ):
     """High-level wrapper around :class:`ReportGenerator`.
 
     Produces a single self-contained HTML report for one sample.
+    From v0.5.0 the BLAST, QUAST and geNomad inputs are accepted as
+    lists (``blastn_files``, ``quast_reports``, ``genomad_summaries``)
+    so the report can carry one row per (sample, assembler). The
+    singular ``blastn_file`` / ``quast_report`` / ``genomad_summary``
+    parameters remain accepted for backwards compatibility with
+    single-assembler callers.
+
     Coverage is sourced from a mosdepth ``regions.bed.gz``; the
     legacy ``coverage_folder`` parameter from 0.2.x was removed when
     virusHanter2 retired its bam2plot rule.
     """
     generator = ReportGenerator(config or DefaultConfig())
     return generator.generate_report(
+        blastn_files=blastn_files,
         blastn_file=blastn_file,
         kraken_file=kraken_file,
         kaiju_table=kaiju_table,
         fastp_json=fastp_json,
         flagstat_file=flagstat_file,
         mosdepth_regions=mosdepth_regions,
+        quast_reports=quast_reports,
         quast_report=quast_report,
         virus_names=virus_names,
+        genomad_summaries=genomad_summaries,
         genomad_summary=genomad_summary,
         secondary_flagstat_file=secondary_flagstat_file,
         secondary_host=secondary_host,

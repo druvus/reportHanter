@@ -128,32 +128,51 @@ class BlastPlotGenerator(BasePlotGenerator):
 
         Same rounded-corner / white-stroke / taxonomy-palette
         treatment used in the Kraken and Kaiju panes for visual
-        consistency.
+        consistency. When the table carries an ``assembler`` column
+        the bars are colour-split by assembler so the reviewer can
+        see whether MEGAHIT and metaSPAdes recovered comparable
+        numbers of contigs per BLAST match.
         """
         title = kwargs.get("title", "BLASTN of Contigs")
 
         if data.empty or "match_name" not in data.columns:
             return self._empty_chart(title="No classified contigs")
 
+        if "assembler" in data.columns and data["assembler"].nunique() > 1:
+            colour_field = "assembler:N"
+            colour_title = "Assembler"
+            legend = alt.Legend(title="Assembler")
+            tooltip = [
+                alt.Tooltip("match_name:N", title="Match"),
+                alt.Tooltip("assembler:N", title="Assembler"),
+                alt.Tooltip("count():Q", title="Number of contigs"),
+            ]
+        else:
+            colour_field = "match_name:N"
+            colour_title = None
+            legend = None
+            tooltip = [
+                alt.Tooltip("match_name:N", title="Match"),
+                alt.Tooltip("count(match_name):Q", title="Number of contigs"),
+            ]
+
         return (
             alt.Chart(data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
             .encode(
                 alt.X(
-                    "count(match_name):Q",
+                    "count():Q",
                     title="Number of contigs",
                     axis=alt.Axis(format="d", tickMinStep=1),
+                    stack="zero",
                 ),
                 alt.Y("match_name:N", sort="-x", title=None),
                 color=alt.Color(
-                    "match_name:N",
-                    title=None,
-                    legend=None,
+                    colour_field,
+                    title=colour_title,
+                    legend=legend,
                     scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
                 ),
-                tooltip=[
-                    alt.Tooltip("match_name:N", title="Match"),
-                    alt.Tooltip("count(match_name):Q", title="Number of contigs"),
-                ],
+                tooltip=tooltip,
             )
         )
