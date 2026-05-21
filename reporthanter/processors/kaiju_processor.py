@@ -110,56 +110,37 @@ class KaijuPlotGenerator(BasePlotGenerator):
         """Create Kaiju classification bar chart.
 
         Mirrors the canonical Kraken bar styling: rounded corners,
-        thin white stroke, nearest-point hover highlight, and direct
-        percentage labels above 2 %. Colour is drawn from the
-        ``mixed`` taxonomy palette in ``core.palettes`` so the
-        Kraken / Kaiju / BLAST sections share a hue cycle.
+        thin white stroke, and the ``mixed`` taxonomy palette from
+        ``core.palettes``. Hover tooltips report the exact taxon
+        name, read count and percentage; a previous iteration drew
+        inline percentage labels via a layered ``mark_text``
+        overlay, but the layered chart did not reconcile cleanly
+        with Panel's ColumnDataSource-backed Vega embed.
         """
         title = kwargs.get("title", "Kaiju classification")
         unclassified_pct = kwargs.get("unclassified_pct", 0.0)
 
-        x_axis = alt.X(
-            "percent:Q",
-            axis=alt.Axis(format="%"),
-            title=f"Percent of reads ({unclassified_pct * 100:.1f}% not classified)",
-            scale=alt.Scale(zero=True),
-        )
-        y_axis = alt.Y("taxon_name:N", sort="-x", title=None)
-        tooltip = [
-            alt.Tooltip("taxon_name:N", title="Taxon"),
-            alt.Tooltip("reads:Q", title="Number of reads"),
-            alt.Tooltip("percent:Q", title="Percentage", format=".2%"),
-        ]
-
-        hover = alt.selection_point(name="kaiju_hover", on="mouseover", empty=False, nearest=True)
-
-        bars = (
+        return (
             alt.Chart(data, title=title)
-            .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1, opacity=0.85)
+            .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
             .encode(
-                x=x_axis,
-                y=y_axis,
-                color=alt.Color(
+                alt.X(
+                    "percent:Q",
+                    axis=alt.Axis(format="%"),
+                    title=f"Percent of reads ({unclassified_pct * 100:.1f}% not classified)",
+                    scale=alt.Scale(zero=True),
+                ),
+                alt.Y("taxon_name:N", sort="-x", title=None),
+                alt.Color(
                     "taxon_name:N",
                     title=None,
                     legend=None,
                     scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
                 ),
-                opacity=alt.condition(hover, alt.value(1.0), alt.value(0.85)),
-                tooltip=tooltip,
-            )
-            .add_params(hover)
-        )
-
-        labels = (
-            alt.Chart(data)
-            .mark_text(align="left", baseline="middle", dx=5, fontSize=10)
-            .encode(
-                x=x_axis,
-                y=y_axis,
-                text=alt.Text("percent:Q", format=".1%"),
-                opacity=alt.condition(alt.datum.percent > 0.02, alt.value(1), alt.value(0)),
+                tooltip=[
+                    alt.Tooltip("taxon_name:N", title="Taxon"),
+                    alt.Tooltip("reads:Q", title="Number of reads"),
+                    alt.Tooltip("percent:Q", title="Percentage", format=".2%"),
+                ],
             )
         )
-
-        return bars + labels

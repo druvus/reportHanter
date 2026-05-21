@@ -118,69 +118,43 @@ class KrakenPlotGenerator(BasePlotGenerator):
     def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
         """Create Kraken classification bar chart.
 
-        Three deliberate visual choices for a scientific report:
+        Two visual choices for a scientific report:
 
         - rounded bar corners with a thin white stroke so adjacent
-          bars read as distinct categories rather than as a stacked
-          fill;
-        - hover highlighting via a ``selection_point`` parameter so
-          the active row is visually emphasised without changing
-          the underlying layout;
-        - direct percentage labels via a ``mark_text`` overlay,
-          shown only when the bar exceeds 2 % of reads to avoid
-          clutter on noise-dominated samples.
+          bars read as distinct categories;
+        - colour drawn from the categorical ``mixed`` palette in
+          ``core.palettes`` so the same hue cycles across the
+          Kraken, Kaiju and BLAST sections of the report.
 
-        Colour is drawn from the categorical ``mixed`` palette in
-        ``core.palettes`` so the same hue cycles across the Kraken,
-        Kaiju and BLAST sections of the report.
+        Exact percentages and read counts are reported in the hover
+        tooltip; an earlier iteration with an inline ``mark_text``
+        overlay rendered blank when wrapped in Panel's
+        ColumnDataSource-backed Vega embed.
         """
         title = kwargs.get("title", "Kraken classification")
         unclassified_pct = kwargs.get("unclassified_pct", 0.0)
 
-        x_axis = alt.X(
-            "percent:Q",
-            axis=alt.Axis(format="%"),
-            title=f"Percent of reads ({unclassified_pct * 100:.1f}% not classified)",
-        )
-        y_axis = alt.Y("name:N", sort="-x", title=None)
-        tooltip = [
-            alt.Tooltip("domain:N"),
-            alt.Tooltip("name:N", title="Species"),
-            alt.Tooltip("count_clades:Q", title="Number of reads"),
-            alt.Tooltip("percent:Q", title="Percentage", format=".2%"),
-        ]
-
-        hover = alt.selection_point(name="kraken_hover", on="mouseover", empty=False, nearest=True)
-
-        bars = (
+        return (
             alt.Chart(data, title=title)
-            .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1, opacity=0.85)
+            .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
             .encode(
-                x=x_axis,
-                y=y_axis,
-                color=alt.Color(
+                alt.X(
+                    "percent:Q",
+                    axis=alt.Axis(format="%"),
+                    title=f"Percent of reads ({unclassified_pct * 100:.1f}% not classified)",
+                ),
+                alt.Y("name:N", sort="-x", title=None),
+                alt.Color(
                     "name:N",
                     title=None,
                     legend=None,
                     scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
                 ),
-                opacity=alt.condition(hover, alt.value(1.0), alt.value(0.85)),
-                tooltip=tooltip,
-            )
-            .add_params(hover)
-        )
-
-        # Inline percentage labels — only above 2 % so low-noise
-        # bars do not crowd the y-axis category labels.
-        labels = (
-            alt.Chart(data)
-            .mark_text(align="left", baseline="middle", dx=5, fontSize=10)
-            .encode(
-                x=x_axis,
-                y=y_axis,
-                text=alt.Text("percent:Q", format=".1%"),
-                opacity=alt.condition(alt.datum.percent > 0.02, alt.value(1), alt.value(0)),
+                tooltip=[
+                    alt.Tooltip("domain:N"),
+                    alt.Tooltip("name:N", title="Species"),
+                    alt.Tooltip("count_clades:Q", title="Number of reads"),
+                    alt.Tooltip("percent:Q", title="Percentage", format=".2%"),
+                ],
             )
         )
-
-        return bars + labels
