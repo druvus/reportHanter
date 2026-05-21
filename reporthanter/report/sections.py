@@ -13,6 +13,7 @@ from ..processors.blast_processor import BlastPlotGenerator, BlastProcessor
 from ..processors.coverage_processor import CoveragePlotGenerator, CoverageProcessor
 from ..processors.fastp_processor import FastpProcessor
 from ..processors.flagstat_processor import FlagstatProcessor
+from ..processors.genomad_processor import GenomadProcessor
 from ..processors.kaiju_processor import KaijuPlotGenerator, KaijuProcessor
 from ..processors.kraken_processor import KrakenPlotGenerator, KrakenProcessor
 from ..processors.quast_processor import QuastProcessor
@@ -230,6 +231,7 @@ class ContigClassificationSection(_SectionBase):
     def generate_section(self, **kwargs) -> pn.Column:
         """Generate contig classification section."""
         blastn_file = kwargs.get("blastn_file")
+        genomad_summary = kwargs.get("genomad_summary")
 
         if not blastn_file:
             raise ValueError("blastn_file is required")
@@ -311,8 +313,19 @@ class ContigClassificationSection(_SectionBase):
         # would only repeat upstream defaults.
 
         blast_pane = pn.pane.Vega(blast_plot, sizing_mode="stretch_both", name="BLASTN")
-        tabs = pn.Tabs(blast_pane, blast_table)
+        tab_panes: list = [blast_pane, blast_table]
 
+        # Optional geNomad call-table — added as a third sub-tab when
+        # virusHanter2 ran geNomad alongside CheckV.
+        if genomad_summary:
+            try:
+                gp = GenomadProcessor(self.config.get_config("genomad"))
+                gdf = gp.process(genomad_summary)
+                tab_panes.append(gp.create_summary_table(gdf))
+            except Exception as e:  # noqa: BLE001
+                self.logger.warning(f"Could not render geNomad summary {genomad_summary}: {e}")
+
+        tabs = pn.Tabs(*tab_panes)
         return pn.Column(header, tabs, download_button)
 
 

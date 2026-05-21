@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to verify 0.3.0 structure without requiring dependencies.
+Test script to verify 0.3.1 structure without requiring dependencies.
 """
 import os
 import sys
@@ -8,7 +8,7 @@ from pathlib import Path
 
 def test_file_structure():
     """Test that the file structure is correct."""
-    print("Testing 0.3.0 file structure...")
+    print("Testing 0.3.1 file structure...")
     
     # Files that should exist
     should_exist = [
@@ -132,13 +132,13 @@ def test_version_numbers():
         with open(pyproject_file, 'r') as f:
             content = f.read()
 
-        if 'version = "0.3.0"' in content:
-            print("✅ pyproject.toml version updated to 0.3.0")
+        if 'version = "0.3.1"' in content:
+            print("✅ pyproject.toml version updated to 0.3.1")
             results["pass"] += 1
         else:
             print("❌ pyproject.toml version not updated")
             results["fail"] += 1
-            results["errors"].append("pyproject.toml version not 0.3.0")
+            results["errors"].append("pyproject.toml version not 0.3.1")
     else:
         print("❌ pyproject.toml not found")
         results["fail"] += 1
@@ -150,13 +150,13 @@ def test_version_numbers():
         with open(init_file, 'r') as f:
             content = f.read()
         
-        if '__version__ = "0.3.0"' in content:
-            print(f"✅ __init__.py version updated to 0.3.0")
+        if '__version__ = "0.3.1"' in content:
+            print(f"✅ __init__.py version updated to 0.3.1")
             results["pass"] += 1
         else:
             print(f"❌ __init__.py version not updated")
             results["fail"] += 1
-            results["errors"].append("__init__.py version not 0.3.0")
+            results["errors"].append("__init__.py version not 0.3.1")
     
     return results
 
@@ -169,7 +169,7 @@ def main():
     os.chdir(repo_root)
     
     print("=" * 60)
-    print("reportHanter 0.3.0 Structure Verification")
+    print("reportHanter 0.3.1 Structure Verification")
     print("=" * 60)
     
     tests = [
@@ -199,7 +199,7 @@ def main():
             print(f"  • {error}")
     
     if total_results["fail"] == 0:
-        print("\n🎉 All tests passed! reportHanter 0.3.0 structure is correct.")
+        print("\n🎉 All tests passed! reportHanter 0.3.1 structure is correct.")
         return True
     else:
         print(f"\n⚠️  {total_results['fail']} tests failed.")

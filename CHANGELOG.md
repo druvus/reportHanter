@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-05-21
+
+Patch release rolling up two weeks of stability fixes against real
+MiSeq batches and the multi-virus smoke fixture.
+
+### Added
+- `CoverageProcessor` + `CoveragePlotGenerator` rendering an
+  interactive Altair trace per reference from a mosdepth
+  `regions.bed.gz`.
+- `QuastProcessor` surfaced as an Alignment Stats sub-tab when
+  `--quast_report` is supplied.
+- `GenomadProcessor` surfaced as a Classification of Contigs sub-tab
+  when `--genomad_summary` is supplied.
+- `--virus_names` CLI flag enriching Alignment Coverage tab labels
+  with the friendly species name alongside the accession.
+- `--mosdepth_regions` required CLI flag (replaces the retired
+  `--coverage_folder`).
+
+### Changed
+- `--coverage_folder` removed; the bam2plot SVG fallback in
+  `CoverageSection` is gone. Coverage is sourced from
+  `--mosdepth_regions` only.
+- `KrakenProcessor` and `KaijuProcessor` migrated to the Altair 5+
+  selection API (`selection_point` + `add_params`). Altair pin
+  bumped to `>=6,<7`.
+- Section header background darkened to `#067a48` (white text now
+  clears WCAG AA contrast).
+- Section header height auto-sizes to content (previously clipped
+  the second line on Alignment Stats and Raw Classification).
+- Contig table copy/download UX (Tabulator clipboard config + CSV
+  download button) replaces the CTRL-C instruction.
+- Inline data row cap raised from Altair's default 5 000 to 100 000
+  so high-resolution coverage traces are not silently truncated.
+- Sample headers strip a trailing `_R` from display names.
+
+### Fixed
+- Kraken processor's `domain` propagation now accepts `R1` as an
+  anchor so the small viral-only Kraken2 DBs (`k2_viral_*`)
+  populate the Raw Classification plot correctly.
+
 ## [0.3.0] - 2024-XX-XX
 
 ### ⚠️ **BREAKING CHANGES**

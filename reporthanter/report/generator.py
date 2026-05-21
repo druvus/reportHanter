@@ -73,6 +73,7 @@ class ReportGenerator:
         sample_name: str | None = None,
         quast_report: str | Path | None = None,
         virus_names: str | Path | None = None,
+        genomad_summary: str | Path | None = None,
     ) -> pn.Column:
         """Generate the complete report.
 
@@ -106,6 +107,7 @@ class ReportGenerator:
             "Classification of Contigs",
             self.sections["contig_classification"].generate_section,
             blastn_file=blastn_file,
+            genomad_summary=genomad_summary,
         )
 
         coverage_section = self._build_section(

@@ -64,6 +64,16 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--genomad_summary",
+        default=None,
+        help=(
+            "Optional path to a geNomad <sample>_virus_summary.tsv. "
+            "When supplied, geNomad's viral-contig calls are added "
+            "to the Classification of Contigs section as an extra "
+            "sub-tab."
+        ),
+    )
+    parser.add_argument(
         "--secondary_flagstat_file",
         default=None,
         help="Path to the secondary flagstat file (optional).",
@@ -127,6 +137,7 @@ def main():
             mosdepth_regions=args.mosdepth_regions,
             virus_names=args.virus_names,
             quast_report=args.quast_report,
+            genomad_summary=args.genomad_summary,
             secondary_flagstat_file=args.secondary_flagstat_file,
             secondary_host=args.secondary_host,
             sample_name=sample_name,
@@ -198,6 +209,14 @@ def validate_inputs(args) -> None:
             errors.append(f"QUAST report path is not a file: {args.quast_report}")
         elif quast_path.stat().st_size == 0:
             errors.append(f"QUAST report is empty: {args.quast_report}")
+    if args.genomad_summary:
+        gp = Path(args.genomad_summary)
+        if not gp.exists():
+            errors.append(f"geNomad summary does not exist: {args.genomad_summary}")
+        elif not gp.is_file():
+            errors.append(f"geNomad summary path is not a file: {args.genomad_summary}")
+        elif gp.stat().st_size == 0:
+            errors.append(f"geNomad summary is empty: {args.genomad_summary}")
 
     # Check output directory is writable
     output_path = Path(args.output)
