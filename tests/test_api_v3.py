@@ -139,7 +139,7 @@ class TestModuleStructure:
         
         # Version should be available
         assert hasattr(reporthanter, '__version__')
-        assert reporthanter.__version__ == "0.4.1"
+        assert reporthanter.__version__ == "0.4.2"
     
     def test_legacy_modules_removed(self):
         """Test that legacy modules are gone."""

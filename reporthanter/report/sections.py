@@ -164,7 +164,7 @@ class RawClassificationSection(_SectionBase):
             virus_data,
             title="Kraken Virus Classification",
             unclassified_pct=virus_unclassified,
-        ).interactive()
+        )
 
         # Create domain plot
         domain_data, domain_unclassified = kraken_processor.filter_data(
@@ -174,7 +174,7 @@ class RawClassificationSection(_SectionBase):
             domain_data,
             title="Kraken Domain Classification",
             unclassified_pct=domain_unclassified,
-        ).interactive()
+        )
 
         # Process Kaiju data
         kaiju_processor = KaijuProcessor(self.config.get_config("kaiju"))
@@ -188,7 +188,7 @@ class RawClassificationSection(_SectionBase):
             kaiju_filtered,
             title="Kaiju Classification",
             unclassified_pct=kaiju_unclassified,
-        ).interactive()
+        )
 
         header = self._create_header(
             """
@@ -241,7 +241,7 @@ class ContigClassificationSection(_SectionBase):
         blast_plot_generator = BlastPlotGenerator(self.config.get_config("plotting"))
 
         blast_data = blast_processor.process(blastn_file)
-        blast_plot = blast_plot_generator.generate_plot(blast_data).interactive()
+        blast_plot = blast_plot_generator.generate_plot(blast_data)
 
         # Create table for contig data
         table_data = blast_data.copy()
