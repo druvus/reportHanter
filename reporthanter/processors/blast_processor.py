@@ -138,41 +138,63 @@ class BlastPlotGenerator(BasePlotGenerator):
         if data.empty or "match_name" not in data.columns:
             return self._empty_chart(title="No classified contigs")
 
-        if "assembler" in data.columns and data["assembler"].nunique() > 1:
-            colour_field = "assembler:N"
-            colour_title = "Assembler"
-            legend = alt.Legend(title="Assembler")
-            tooltip = [
-                alt.Tooltip("match_name:N", title="Match"),
-                alt.Tooltip("assembler:N", title="Assembler"),
-                alt.Tooltip("count():Q", title="Number of contigs"),
-            ]
-        else:
-            colour_field = "match_name:N"
-            colour_title = None
-            legend = None
-            tooltip = [
+        multi_assembler = (
+            "assembler" in data.columns and data["assembler"].nunique() > 1
+        )
+
+        chart = alt.Chart(data, title=title).mark_bar(
+            cornerRadius=3, stroke="white", strokeWidth=1
+        )
+
+        if multi_assembler:
+            # Legend-bound selection so reviewers can toggle each
+            # assembler's contribution by clicking the legend in the
+            # saved static HTML (no Panel server needed).
+            select_asm = alt.selection_point(
+                fields=["assembler"], bind="legend"
+            )
+            chart = (
+                chart.encode(
+                    alt.X(
+                        "count():Q",
+                        title="Number of contigs",
+                        axis=alt.Axis(format="d", tickMinStep=1),
+                        stack="zero",
+                    ),
+                    alt.Y("match_name:N", sort="-x", title=None),
+                    color=alt.Color(
+                        "assembler:N",
+                        title="Assembler",
+                        legend=alt.Legend(title="Assembler"),
+                        scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
+                    ),
+                    opacity=alt.condition(select_asm, alt.value(1.0), alt.value(0.15)),
+                    tooltip=[
+                        alt.Tooltip("match_name:N", title="Match"),
+                        alt.Tooltip("assembler:N", title="Assembler"),
+                        alt.Tooltip("count():Q", title="Number of contigs"),
+                    ],
+                )
+                .add_params(select_asm)
+            )
+            return chart
+
+        return chart.encode(
+            alt.X(
+                "count():Q",
+                title="Number of contigs",
+                axis=alt.Axis(format="d", tickMinStep=1),
+                stack="zero",
+            ),
+            alt.Y("match_name:N", sort="-x", title=None),
+            color=alt.Color(
+                "match_name:N",
+                title=None,
+                legend=None,
+                scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
+            ),
+            tooltip=[
                 alt.Tooltip("match_name:N", title="Match"),
                 alt.Tooltip("count(match_name):Q", title="Number of contigs"),
-            ]
-
-        return (
-            alt.Chart(data, title=title)
-            .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
-            .encode(
-                alt.X(
-                    "count():Q",
-                    title="Number of contigs",
-                    axis=alt.Axis(format="d", tickMinStep=1),
-                    stack="zero",
-                ),
-                alt.Y("match_name:N", sort="-x", title=None),
-                color=alt.Color(
-                    colour_field,
-                    title=colour_title,
-                    legend=legend,
-                    scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
-                ),
-                tooltip=tooltip,
-            )
+            ],
         )

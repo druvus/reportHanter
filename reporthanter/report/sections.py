@@ -275,27 +275,31 @@ class ContigClassificationSection(_SectionBase):
             else pd.DataFrame()
         )
 
-        blast_plot = blast_plot_generator.generate_plot(blast_data)
+        def _table_view(frame: pd.DataFrame) -> pd.DataFrame:
+            """Drop bookkeeping columns and pin ``assembler`` first.
 
-        # Create table for contig data
-        table_data = blast_data.copy()
-        if table_data.empty:
-            table_data = pd.DataFrame({"sequence": ["NO SEQUENCES GENERATED"]})
-        else:
-            # Clean up table data. sample_id is the same value on every
-            # row of a single-sample report and is already shown in the
-            # main banner, so drop it. Keep `assembler` and move it to
-            # the second position so reviewers can see which assembler
-            # produced each row without horizontal scrolling.
+            Kept as a closure so the assembler-filter callback can
+            project the filtered BLAST frame through exactly the same
+            column shape as the initial render.
+            """
+            if frame.empty:
+                return pd.DataFrame({"sequence": ["NO SEQUENCES GENERATED"]})
             columns_to_drop = ["name", "matches", "sample_id"]
-            table_data = table_data.drop(
-                columns=[col for col in columns_to_drop if col in table_data.columns]
+            view = frame.drop(
+                columns=[col for col in columns_to_drop if col in frame.columns]
             )
-            if "assembler" in table_data.columns:
-                cols = ["assembler"] + [
-                    c for c in table_data.columns if c != "assembler"
-                ]
-                table_data = table_data[cols]
+            if "assembler" in view.columns:
+                cols = ["assembler"] + [c for c in view.columns if c != "assembler"]
+                view = view[cols]
+            return view
+
+        blast_plot = blast_plot_generator.generate_plot(blast_data)
+        table_data = _table_view(blast_data)
+        present_assemblers: list[str] = (
+            sorted(blast_data["assembler"].dropna().unique().astype(str).tolist())
+            if ("assembler" in blast_data.columns and not blast_data.empty)
+            else []
+        )
 
         # Tabulator copy button for the sequence column. Tabulator's
         # built-in row-menu copy works for whole rows; a column formatter
@@ -323,7 +327,15 @@ class ContigClassificationSection(_SectionBase):
                     "columnCalcs": False,
                 },
             },
-            name="Contig Table",
+            name=(
+                "All assemblers"
+                if (
+                    "assembler" in blast_data.columns
+                    and not blast_data.empty
+                    and blast_data["assembler"].nunique() > 1
+                )
+                else "Contig Table"
+            ),
         )
 
         # CSV download button — Tabulator exposes a .download() JS method
@@ -364,8 +376,62 @@ class ContigClassificationSection(_SectionBase):
         # virusHanter2), so a "Filters applied" block on this section
         # would only repeat upstream defaults.
 
-        blast_pane = pn.pane.Vega(blast_plot, sizing_mode="stretch_both", name="BLASTN")
-        tab_panes: list = [blast_pane, blast_table]
+        # Multi-assembler reports: one sub-tab per assembler plus an
+        # "All assemblers" union tab; each tab carries its own BLAST
+        # bar chart on top and the matching contig table below. The
+        # tab-switch is baked into the static HTML so the saved file
+        # is fully interactive without a Panel server. (Panel's
+        # `param.watch` callbacks only fire under a live server.)
+        #
+        # Single-assembler runs keep the original two-tab shape
+        # (BLAST chart, contig table).
+        def _build_assembler_tab(name: str, frame: pd.DataFrame) -> pn.Column:
+            sub_plot = blast_plot_generator.generate_plot(frame)
+            sub_table = pn.widgets.Tabulator(
+                _table_view(frame),
+                formatters=formatters,
+                layout="fit_columns",
+                pagination="local",
+                page_size=15,
+                show_index=False,
+                configuration={
+                    "clipboard": True,
+                    "clipboardCopyRowRange": "active",
+                    "clipboardCopyConfig": {
+                        "columnHeaders": True,
+                        "rowGroups": False,
+                        "columnCalcs": False,
+                    },
+                },
+            )
+            # Fix the Vega pane to stretch_width with a bounded
+            # height. Without the height bound, `stretch_both` lets
+            # the chart container expand to fill its parent and
+            # overlap the Tabulator below it in the saved HTML.
+            return pn.Column(
+                pn.pane.Vega(
+                    sub_plot,
+                    sizing_mode="stretch_width",
+                    height=420,
+                ),
+                sub_table,
+                name=name,
+                sizing_mode="stretch_width",
+            )
+
+        if len(present_assemblers) > 1:
+            tab_panes: list = [_build_assembler_tab("All assemblers", blast_data)]
+            for asm in present_assemblers:
+                tab_panes.append(
+                    _build_assembler_tab(
+                        asm, blast_data.loc[blast_data["assembler"] == asm]
+                    )
+                )
+        else:
+            blast_pane = pn.pane.Vega(
+                blast_plot, sizing_mode="stretch_both", name="BLASTN"
+            )
+            tab_panes = [blast_pane, blast_table]
 
         # Optional geNomad call-tables — one sub-tab per assembler
         # when virusHanter2 ran geNomad alongside CheckV.
@@ -426,6 +492,7 @@ class CoverageSection(_SectionBase):
             return pn.Column(header, tabs)
 
         chrom_to_name: dict[str, str] = {}
+        chrom_to_sources: dict[str, str] = {}
         if virus_names:
             try:
                 names_df = pd.read_csv(virus_names, sep="\t")
@@ -437,13 +504,28 @@ class CoverageSection(_SectionBase):
                             strict=False,
                         )
                     )
+                # Optional `sources` column added when virusHanter2
+                # builds the reference set from the union of
+                # classifier outputs. Older sidecars do not have it;
+                # the tab label then falls back to the original
+                # ``<chrom> — <species>`` shape.
+                if "sources" in names_df.columns:
+                    chrom_to_sources = dict(
+                        zip(
+                            names_df["chrom"].astype(str),
+                            names_df["sources"].fillna("").astype(str),
+                            strict=False,
+                        )
+                    )
             except Exception as e:  # noqa: BLE001
                 self.logger.warning(f"Could not read virus-names sidecar {virus_names}: {e}")
 
         for chrom, sub in df.groupby("chrom", sort=True):
             chart = plot_generator.generate_plot(sub, chrom=str(chrom)).interactive()
             species = chrom_to_name.get(str(chrom), "")
-            label = f"{chrom} — {species}" if species else str(chrom)
+            sources = chrom_to_sources.get(str(chrom), "")
+            base = f"{chrom} — {species}" if species else str(chrom)
+            label = f"{base} [{sources}]" if sources else base
             tabs.append(pn.pane.Vega(chart, sizing_mode="stretch_both", name=label))
 
         self.logger.info(
