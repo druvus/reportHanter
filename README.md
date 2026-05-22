@@ -18,12 +18,13 @@ the original monolithic `virusHanter` Snakefile.
   alignment flagstat panel.
 - **Classification of Raw Reads** — Kraken2 (virus-only and
   domain-level) plus Kaiju bar charts.
+- **Assembly** — one Assembly (QUAST) sub-tab per assembler when
+  `virusHanter2` ran QUAST (N50, number of contigs, largest
+  contig, GC%, ...). Empty placeholder when QUAST was off.
 - **Classification of Contigs** — one sub-tab per assembler (e.g.
   `All assemblers`, `MEGAHIT`, `SPAdes`) carrying a BLAST bar
   chart on top of the per-assembler contig table. Optional
-  per-assembler **Assembly (QUAST)** sub-tabs (N50, number of
-  contigs, GC%, etc.) and **geNomad** summary sub-tabs sit next
-  to the BLAST tabs.
+  **geNomad** summary sub-tabs sit next to the BLAST tabs.
 - **Alignment Coverage** — interactive mosdepth coverage trace
   per reference, tabs labelled `<chrom> — <species> [<sources>]`
   where `<sources>` shows which classifier(s) contributed the

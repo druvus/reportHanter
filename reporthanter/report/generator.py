@@ -12,6 +12,7 @@ from ..core.config import DefaultConfig
 from ..core.exceptions import ReportGenerationError
 from .sections import (
     AlignmentStatsSection,
+    AssemblySection,
     ContigClassificationSection,
     CoverageSection,
     RawClassificationSection,
@@ -32,6 +33,7 @@ class ReportGenerator:
         self.sections = {
             "alignment": AlignmentStatsSection(self.config),
             "raw_classification": RawClassificationSection(self.config),
+            "assembly": AssemblySection(self.config),
             "contig_classification": ContigClassificationSection(self.config),
             "coverage": CoverageSection(self.config),
         }
@@ -118,16 +120,20 @@ class ReportGenerator:
             kaiju_table=kaiju_table,
         )
 
-        # QUAST measures de novo assembly contigs, so it lives
-        # next to the BLAST + geNomad sub-tabs under the contig
-        # classification section rather than alongside the host
-        # alignment stats.
+        # QUAST sits in its own Assembly section: it measures the
+        # contigs the assembler produced, not the alignment and not
+        # the classifier annotations downstream of those contigs.
+        assembly_section = self._build_section(
+            "Assembly",
+            self.sections["assembly"].generate_section,
+            quast_reports=quast_paths,
+        )
+
         contig_classification_section = self._build_section(
             "Classification of Contigs",
             self.sections["contig_classification"].generate_section,
             blastn_files=blastn_paths,
             genomad_summaries=genomad_paths,
-            quast_reports=quast_paths,
         )
 
         coverage_section = self._build_section(
@@ -142,6 +148,7 @@ class ReportGenerator:
             main_tabs = pn.Tabs(
                 ("Alignment Stats", alignment_section),
                 ("Classification of Raw Reads", raw_classification_section),
+                ("Assembly", assembly_section),
                 ("Classification of Contigs", contig_classification_section),
                 ("Alignment Coverage", coverage_section),
                 tabs_location="left",

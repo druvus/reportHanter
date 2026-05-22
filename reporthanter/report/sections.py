@@ -209,6 +209,81 @@ class RawClassificationSection(_SectionBase):
         return pn.Column(header, filters, tabs)
 
 
+class AssemblySection(_SectionBase):
+    """Report section for de novo assembly metrics (QUAST per assembler).
+
+    QUAST measures the contigs produced by the de novo assembler
+    before any viral classification or contamination check. Each
+    active assembler in ``virusHanter2``'s ``config[ASSEMBLERS]``
+    contributes one ``report.tsv``; this section renders one
+    sub-tab per assembler showing N50, the number of contigs, the
+    largest contig, GC content and the standard QUAST metric set.
+    """
+
+    @property
+    def section_name(self) -> str:
+        return "Assembly"
+
+    def generate_section(self, **kwargs) -> pn.Column:
+        """Generate the assembly section.
+
+        Accepts a list of QUAST ``report.tsv`` paths via
+        ``quast_reports`` (one per assembler). The plural form
+        mirrors the multi-assembler shape used by the other
+        sections; a singular ``quast_report`` is still accepted
+        for legacy single-assembler callers.
+        """
+        quast_reports = kwargs.get("quast_reports")
+        if not quast_reports and kwargs.get("quast_report"):
+            quast_reports = [kwargs["quast_report"]]
+
+        header = self._create_header(
+            """
+            ## Assembly
+            Assembly metrics from QUAST, one sub-tab per
+            assembler. Numbers refer to the polished contigs the
+            assembler produced before BLAST classification or
+            CheckV contamination assessment.
+            """
+        )
+
+        if not quast_reports:
+            return pn.Column(
+                header,
+                pn.pane.Markdown(
+                    "*No QUAST reports were supplied. Enable "
+                    "`QUAST: \"TRUE\"` in the virusHanter2 config "
+                    "to populate this section.*"
+                ),
+            )
+
+        tab_panes: list = []
+        for qpath in quast_reports:
+            try:
+                quast_processor = QuastProcessor(
+                    self.config.get_config("quast")
+                )
+                quast_data = quast_processor.process(qpath)
+                tab_panes.append(
+                    quast_processor.create_summary_table(quast_data)
+                )
+            except Exception as e:  # noqa: BLE001
+                self.logger.warning(
+                    f"Could not render QUAST report {qpath}: {e}"
+                )
+
+        if not tab_panes:
+            return pn.Column(
+                header,
+                pn.pane.Markdown(
+                    "*QUAST reports were supplied but could not "
+                    "be parsed; see the run log.*"
+                ),
+            )
+
+        return pn.Column(header, pn.Tabs(*tab_panes))
+
+
 class ContigClassificationSection(_SectionBase):
     """Report section for contig classification (BLAST)."""
 
@@ -233,13 +308,6 @@ class ContigClassificationSection(_SectionBase):
         genomad_summaries = kwargs.get("genomad_summaries")
         if not genomad_summaries and kwargs.get("genomad_summary"):
             genomad_summaries = [kwargs["genomad_summary"]]
-        # QUAST measures assembly contigs (N50, # contigs, largest
-        # contig, GC%); it belongs in this section rather than under
-        # Alignment Stats. Accept both the plural and singular form
-        # for symmetry with the BLAST / geNomad parameters.
-        quast_reports = kwargs.get("quast_reports")
-        if not quast_reports and kwargs.get("quast_report"):
-            quast_reports = [kwargs["quast_report"]]
 
         if not blastn_files:
             raise ValueError("blastn_files is required")
@@ -359,11 +427,11 @@ class ContigClassificationSection(_SectionBase):
             f"""
             ## Classification of Contigs
             Contigs from de novo assembly are classified with
-            BLASTN. {counts_line} When geNomad and QUAST are
-            enabled in the pipeline, an Assembly (QUAST) sub-tab
-            and a geNomad summary sub-tab are added per assembler.
-            Select rows and press Ctrl/Cmd-C to copy, or use the
-            download button below to export the full table as CSV.
+            BLASTN. {counts_line} When geNomad is enabled in the
+            pipeline, a per-assembler geNomad summary sub-tab is
+            added. Select rows and press Ctrl/Cmd-C to copy, or
+            use the download button below to export the full
+            table as CSV.
             """
         )
 
@@ -440,26 +508,6 @@ class ContigClassificationSection(_SectionBase):
                 except Exception as e:  # noqa: BLE001
                     self.logger.warning(
                         f"Could not render geNomad summary {gpath}: {e}"
-                    )
-
-        # Optional QUAST assembly metrics — one sub-tab per assembler
-        # showing assembly quality (N50, number of contigs, largest
-        # contig, GC%, ...). Sits next to the BLAST / geNomad
-        # sub-tabs so the contig evaluation arc (assembly quality →
-        # viral hits → contamination) lives in a single section.
-        if quast_reports:
-            for qpath in quast_reports:
-                try:
-                    quast_processor = QuastProcessor(
-                        self.config.get_config("quast")
-                    )
-                    quast_data = quast_processor.process(qpath)
-                    tab_panes.append(
-                        quast_processor.create_summary_table(quast_data)
-                    )
-                except Exception as e:  # noqa: BLE001
-                    self.logger.warning(
-                        f"Could not render QUAST report {qpath}: {e}"
                     )
 
         tabs = pn.Tabs(*tab_panes)
