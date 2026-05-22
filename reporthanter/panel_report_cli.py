@@ -60,7 +60,7 @@ def parse_args():
             "Optional TSV with columns 'chrom', 'tax_id', 'name' "
             "mapping mosdepth chrom ids (typically RefSeq accessions) "
             "to a friendly virus species name. When supplied, the "
-            "Alignment Coverage tabs read '<chrom> -- <name>' instead "
+            "Alignment coverage tabs read '<chrom> -- <name>' instead "
             "of just the chrom id."
         ),
     )
@@ -71,7 +71,7 @@ def parse_args():
         help=(
             "Optional path to a QUAST report.tsv. Repeat once per "
             "assembler. When supplied, a small assembly-summary table "
-            "is added to the Alignment Stats section as an extra "
+            "is added to the Assembly statistics section as an extra "
             "sub-tab."
         ),
     )
@@ -82,8 +82,8 @@ def parse_args():
         help=(
             "Optional path to a geNomad <sample>_virus_summary.tsv. "
             "Repeat once per assembler. When supplied, geNomad's "
-            "viral-contig calls are added to the Classification of "
-            "Contigs section as an extra sub-tab."
+            "viral-contig calls are added to the Assembly "
+            "classification section as an extra sub-tab."
         ),
     )
     parser.add_argument(

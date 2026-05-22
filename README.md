@@ -14,22 +14,28 @@ the original monolithic `virusHanter` Snakefile.
 
 ## What's in the report
 
-- **Alignment Stats** — fastp read-summary table plus host
-  alignment flagstat panel.
-- **Classification of Raw Reads** — Kraken2 (virus-only and
-  domain-level) plus Kaiju bar charts.
-- **Assembly** — one Assembly (QUAST) sub-tab per assembler when
-  `virusHanter2` ran QUAST (N50, number of contigs, largest
-  contig, GC%, ...). Empty placeholder when QUAST was off.
-- **Classification of Contigs** — one sub-tab per assembler (e.g.
+The report follows the pipeline's data-flow order:
+
+- **Read statistics** — fastp summary (number of reads, length,
+  Q20/Q30, duplication rate, GC content).
+- **Host alignment** — samtools-flagstat panel for the host
+  alignment, plus the optional secondary-host stats. Shows how
+  many reads were filtered out before classification and
+  assembly.
+- **Classification of reads** — Kraken2 (virus-only and
+  domain-level) plus Kaiju bar charts on the host-removed reads.
+- **Assembly statistics** — one Assembly (QUAST) sub-tab per
+  assembler when `virusHanter2` ran QUAST (N50, number of
+  contigs, largest contig, GC%, ...). Empty placeholder when
+  QUAST was off.
+- **Assembly classification** — one sub-tab per assembler (e.g.
   `All assemblers`, `MEGAHIT`, `SPAdes`) carrying a BLAST bar
   chart on top of the per-assembler contig table. Optional
   **geNomad** summary sub-tabs sit next to the BLAST tabs.
-- **Alignment Coverage** — interactive mosdepth coverage trace
+- **Alignment coverage** — interactive mosdepth coverage trace
   per reference, tabs labelled `<chrom> — <species> [<sources>]`
   where `<sources>` shows which classifier(s) contributed the
   reference (e.g. `[blast;kraken->genus]`).
-
 ## Requirements
 
 - Python 3.12+

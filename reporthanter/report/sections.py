@@ -65,61 +65,89 @@ class _SectionBase(ReportSection):
         )
 
 
-class AlignmentStatsSection(_SectionBase):
-    """Report section for alignment statistics and read quality."""
+class ReadStatisticsSection(_SectionBase):
+    """Report section for raw read quality (fastp summary).
+
+    Splits the former combined "Alignment and Read Statistics"
+    panel: this section carries the fastp summary alone so it
+    reads as a pure read-QC story, with host alignment moved into
+    its own sibling section.
+    """
 
     @property
     def section_name(self) -> str:
-        return "Alignment and Read Statistics"
+        return "Read statistics"
 
     def generate_section(self, **kwargs) -> pn.Column:
-        """Generate alignment statistics section."""
-        flagstat_file = kwargs.get("flagstat_file")
         fastp_json = kwargs.get("fastp_json")
-        secondary_flagstat_file = kwargs.get("secondary_flagstat_file")
-        secondary_host = kwargs.get("secondary_host", "Secondary")
+        if not fastp_json:
+            raise ValueError("fastp_json is required")
 
-        if not flagstat_file or not fastp_json:
-            raise ValueError("flagstat_file and fastp_json are required")
-
-        # Process alignment stats
-        flagstat_processor = FlagstatProcessor(self.config.get_config("flagstat"))
-        flagstat_data = flagstat_processor.process(flagstat_file)
-        human_stats, human_pane = flagstat_processor.create_alignment_stats(flagstat_data, "Human")
-
-        # Process secondary alignment if provided
-        secondary_components = []
-        if secondary_flagstat_file:
-            secondary_data = flagstat_processor.process(secondary_flagstat_file)
-            secondary_stats, secondary_pane = flagstat_processor.create_alignment_stats(
-                secondary_data, secondary_host
-            )
-            secondary_components = [secondary_stats, pn.layout.Divider(), secondary_pane]
-
-        # Process FastP data
         fastp_processor = FastpProcessor(self.config.get_config("fastp"))
         fastp_data = fastp_processor.process(fastp_json)
         fastp_table = fastp_processor.create_summary_table(fastp_data)
 
         header = self._create_header(
             """
-            ## Alignment and Read Statistics
-            Reads were aligned to Human and optionally other host species with bwa.
+            ## Read statistics
+            Read-level quality from fastp: number of reads, length,
+            Q20/Q30 rates, duplication rate, GC content. These
+            describe the input before host removal and assembly.
             """
         )
+        return pn.Column(header, fastp_table)
 
-        alignment_components = [
-            human_stats,
-            pn.layout.Divider(),
-            human_pane,
-        ]
-        alignment_components.extend(secondary_components)
 
-        flagstat_column = pn.Column(*alignment_components, name="Alignment")
-        tab_panes: list = [flagstat_column, fastp_table]
+class HostAlignmentSection(_SectionBase):
+    """Report section for host alignment outcome (samtools flagstat).
 
-        tabs = pn.Tabs(*tab_panes)
-        return pn.Column(header, tabs)
+    The flagstat shows how many reads landed on the host
+    reference (and on the optional secondary host) and therefore
+    did *not* feed the downstream classifiers and assemblers. The
+    `host_removal_tool` column in the per-batch run-info CSV
+    records whether the pre-processing used `bwa` or `hostile`.
+    """
+
+    @property
+    def section_name(self) -> str:
+        return "Host alignment"
+
+    def generate_section(self, **kwargs) -> pn.Column:
+        flagstat_file = kwargs.get("flagstat_file")
+        secondary_flagstat_file = kwargs.get("secondary_flagstat_file")
+        secondary_host = kwargs.get("secondary_host", "Secondary")
+        if not flagstat_file:
+            raise ValueError("flagstat_file is required")
+
+        flagstat_processor = FlagstatProcessor(self.config.get_config("flagstat"))
+        flagstat_data = flagstat_processor.process(flagstat_file)
+        human_stats, human_pane = flagstat_processor.create_alignment_stats(
+            flagstat_data, "Human"
+        )
+
+        components = [human_stats, pn.layout.Divider(), human_pane]
+        if secondary_flagstat_file:
+            secondary_data = flagstat_processor.process(secondary_flagstat_file)
+            secondary_stats, secondary_pane = (
+                flagstat_processor.create_alignment_stats(
+                    secondary_data, secondary_host
+                )
+            )
+            components.extend(
+                [pn.layout.Divider(), secondary_stats, pn.layout.Divider(),
+                 secondary_pane]
+            )
+
+        header = self._create_header(
+            """
+            ## Host alignment
+            Read pairs aligned to the host reference (typically
+            human; optionally a second host like mouse) and removed
+            before classification and assembly. Counts come from
+            samtools flagstat.
+            """
+        )
+        return pn.Column(header, *components)
 
 
 class RawClassificationSection(_SectionBase):
@@ -127,7 +155,7 @@ class RawClassificationSection(_SectionBase):
 
     @property
     def section_name(self) -> str:
-        return "Classification of Raw Reads"
+        return "Classification of reads"
 
     def generate_section(self, **kwargs) -> pn.Column:
         """Generate raw classification section."""
@@ -180,7 +208,7 @@ class RawClassificationSection(_SectionBase):
 
         header = self._create_header(
             """
-            ## Classification of Raw Reads
+            ## Classification of reads
             Reads were classified with Kraken2 and Kaiju.
             """
         )
@@ -222,7 +250,7 @@ class AssemblySection(_SectionBase):
 
     @property
     def section_name(self) -> str:
-        return "Assembly"
+        return "Assembly statistics"
 
     def generate_section(self, **kwargs) -> pn.Column:
         """Generate the assembly section.
@@ -289,7 +317,7 @@ class ContigClassificationSection(_SectionBase):
 
     @property
     def section_name(self) -> str:
-        return "Classification of Contigs"
+        return "Assembly classification"
 
     def generate_section(self, **kwargs) -> pn.Column:
         """Generate contig classification section.
@@ -519,7 +547,7 @@ class CoverageSection(_SectionBase):
 
     @property
     def section_name(self) -> str:
-        return "Alignment Coverage"
+        return "Alignment coverage"
 
     def generate_section(self, **kwargs) -> pn.Column:
         """Generate coverage plots section.
@@ -536,7 +564,7 @@ class CoverageSection(_SectionBase):
         if not mosdepth_regions:
             raise ValueError("mosdepth_regions is required")
 
-        header = self._create_header("## Alignment Coverage")
+        header = self._create_header("## Alignment coverage")
         tabs = pn.Tabs()
 
         processor = CoverageProcessor(self.config.get_config("coverage"))

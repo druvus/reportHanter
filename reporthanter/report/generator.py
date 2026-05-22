@@ -11,11 +11,12 @@ import panel as pn
 from ..core.config import DefaultConfig
 from ..core.exceptions import ReportGenerationError
 from .sections import (
-    AlignmentStatsSection,
     AssemblySection,
     ContigClassificationSection,
     CoverageSection,
+    HostAlignmentSection,
     RawClassificationSection,
+    ReadStatisticsSection,
 )
 
 
@@ -29,9 +30,14 @@ class ReportGenerator:
         # Initialize Panel extensions
         self._setup_panel()
 
-        # Initialize sections
+        # Initialize sections. The pipeline's data-flow order is
+        # used both for the section build order below and for the
+        # main_tabs layout: read QC → host alignment → read-level
+        # classification → assembly metrics → contig classification
+        # → per-reference coverage.
         self.sections = {
-            "alignment": AlignmentStatsSection(self.config),
+            "read_statistics": ReadStatisticsSection(self.config),
+            "host_alignment": HostAlignmentSection(self.config),
             "raw_classification": RawClassificationSection(self.config),
             "assembly": AssemblySection(self.config),
             "contig_classification": ContigClassificationSection(self.config),
@@ -104,17 +110,22 @@ class ReportGenerator:
         quast_paths = self._coalesce_paths(quast_reports, quast_report)
         genomad_paths = self._coalesce_paths(genomad_summaries, genomad_summary)
 
-        alignment_section = self._build_section(
-            "Alignment Stats",
-            self.sections["alignment"].generate_section,
-            flagstat_file=flagstat_file,
+        read_statistics_section = self._build_section(
+            "Read statistics",
+            self.sections["read_statistics"].generate_section,
             fastp_json=fastp_json,
+        )
+
+        host_alignment_section = self._build_section(
+            "Host alignment",
+            self.sections["host_alignment"].generate_section,
+            flagstat_file=flagstat_file,
             secondary_flagstat_file=secondary_flagstat_file,
             secondary_host=secondary_host,
         )
 
         raw_classification_section = self._build_section(
-            "Classification of Raw Reads",
+            "Classification of reads",
             self.sections["raw_classification"].generate_section,
             kraken_file=kraken_file,
             kaiju_table=kaiju_table,
@@ -124,20 +135,20 @@ class ReportGenerator:
         # contigs the assembler produced, not the alignment and not
         # the classifier annotations downstream of those contigs.
         assembly_section = self._build_section(
-            "Assembly",
+            "Assembly statistics",
             self.sections["assembly"].generate_section,
             quast_reports=quast_paths,
         )
 
         contig_classification_section = self._build_section(
-            "Classification of Contigs",
+            "Assembly classification",
             self.sections["contig_classification"].generate_section,
             blastn_files=blastn_paths,
             genomad_summaries=genomad_paths,
         )
 
         coverage_section = self._build_section(
-            "Alignment Coverage",
+            "Alignment coverage",
             self.sections["coverage"].generate_section,
             mosdepth_regions=mosdepth_regions,
             virus_names=virus_names,
@@ -146,11 +157,12 @@ class ReportGenerator:
         try:
             header = self._create_main_header(sample_name)
             main_tabs = pn.Tabs(
-                ("Alignment Stats", alignment_section),
-                ("Classification of Raw Reads", raw_classification_section),
-                ("Assembly", assembly_section),
-                ("Classification of Contigs", contig_classification_section),
-                ("Alignment Coverage", coverage_section),
+                ("Read statistics", read_statistics_section),
+                ("Host alignment", host_alignment_section),
+                ("Classification of reads", raw_classification_section),
+                ("Assembly statistics", assembly_section),
+                ("Assembly classification", contig_classification_section),
+                ("Alignment coverage", coverage_section),
                 tabs_location="left",
             )
             report = pn.Column(header, pn.layout.Divider(), main_tabs)
