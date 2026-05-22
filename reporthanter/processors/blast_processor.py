@@ -236,8 +236,15 @@ class BlastPlotGenerator(BasePlotGenerator):
         chart_data = chart_data.dropna(subset=["read_len"])
         chart_data["read_len"] = chart_data["read_len"].astype(int)
 
-        chart = alt.Chart(chart_data, title=title).mark_bar(
-            cornerRadius=3, stroke="white", strokeWidth=1
+        # Set an explicit width / height on the chart so the
+        # Tabulator beneath does not crowd the bars at narrow
+        # browser widths. Panel's `stretch_width` on the pane will
+        # then scale the chart up; this just provides a wider
+        # default basis.
+        chart = (
+            alt.Chart(chart_data, title=title)
+            .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
+            .properties(width="container", height=520)
         )
 
         # Layer a text mark at the bar tip carrying "N=<count>" so

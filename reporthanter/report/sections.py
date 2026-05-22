@@ -74,30 +74,20 @@ def _host_kpi_strip(
     )
 
 
-def _coverage_summary_table(
+def _coverage_summary_frame(
     df: pd.DataFrame,
     chrom_to_name: dict[str, str],
     chrom_to_sources: dict[str, str],
-) -> pn.widgets.Tabulator:
-    """Per-reference summary across every chrom in the mosdepth
-    regions BED. Lets reviewers sort the entire reference set by
-    coverage at one of the standard thresholds rather than
-    clicking every per-reference sub-tab to find the
-    well-covered ones.
+) -> pd.DataFrame:
+    """Build the per-reference summary DataFrame (no widget).
 
-    Columns are kept compact: chrom, species, sources, length
-    (bp), mean depth, % >= 5x, % >= 10x. Sort defaults to
-    "% >= 10x" descending so the highest-coverage references
-    float to the top of the table.
+    Separated from the Tabulator builder so the caller can also
+    use the resulting chrom order to drive the per-reference tab
+    sequence (so both the summary table and the tab strip share
+    `pct_ge_10x` descending sort).
     """
     if df.empty or "depth" not in df.columns:
-        return pn.widgets.Tabulator(
-            pd.DataFrame(columns=["chrom", "species", "sources"]),
-            disabled=True,
-            show_index=False,
-            layout="fit_columns",
-            pagination=None,
-        )
+        return pd.DataFrame(columns=["chrom", "species", "sources"])
 
     rows: list[dict[str, str | float | int]] = []
     for chrom, sub in df.groupby("chrom", sort=False):
@@ -121,16 +111,29 @@ def _coverage_summary_table(
             }
         )
 
-    out = pd.DataFrame(rows).sort_values(
-        "pct_ge_10x", ascending=False, kind="mergesort"
+    return (
+        pd.DataFrame(rows)
+        .sort_values("pct_ge_10x", ascending=False, kind="mergesort")
+        .reset_index(drop=True)
     )
+
+
+def _coverage_summary_table(
+    summary_df: pd.DataFrame,
+) -> pn.widgets.Tabulator:
+    """Render the per-reference summary as a single-selection
+    Tabulator. The single-row selection drives the linked
+    `pn.Tabs.active` index in `CoverageSection`, so clicking a
+    summary row jumps the trace strip to that reference.
+    """
     return pn.widgets.Tabulator(
-        out,
+        summary_df,
         disabled=True,
         show_index=False,
         layout="fit_columns",
         pagination="local",
         page_size=15,
+        selectable=1,
         configuration={
             "clipboard": True,
             "clipboardCopyRowRange": "active",
@@ -308,21 +311,31 @@ class HostAlignmentSection(_SectionBase):
         # removed) plus the backend label inferred from the
         # flagstat filename (hostile writes
         # `hostile_contamination_flagstat.txt`; bwa writes
-        # `human_contamination_flagstat.txt`). Layout-only — the
-        # numbers come straight from the parsed flagstat DataFrame.
+        # `human_contamination_flagstat.txt`). The markdown stats
+        # block produced by `create_alignment_stats` is dropped
+        # below because its four headline numbers are now in the
+        # KPI tiles. Only the bar chart visualisation survives.
+        del human_stats
         kpi_row = _host_kpi_strip(flagstat_data, str(flagstat_file))
 
-        components = [kpi_row, pn.layout.Divider(), human_stats, pn.layout.Divider(), human_pane]
+        components = [kpi_row, pn.layout.Divider(), human_pane]
         if secondary_flagstat_file:
             secondary_data = flagstat_processor.process(secondary_flagstat_file)
-            secondary_stats, secondary_pane = (
+            _secondary_stats, secondary_pane = (
                 flagstat_processor.create_alignment_stats(
                     secondary_data, secondary_host
                 )
             )
+            del _secondary_stats  # KPI tiles cover it for the primary; we keep only the bar for the secondary too.
             components.extend(
-                [pn.layout.Divider(), secondary_stats, pn.layout.Divider(),
-                 secondary_pane]
+                [
+                    pn.layout.Divider(),
+                    pn.pane.Markdown(
+                        f"**{secondary_host} alignment**",
+                        styles={"margin": "0 10px 4px 10px"},
+                    ),
+                    secondary_pane,
+                ]
             )
 
         header = self._create_header(
@@ -751,8 +764,14 @@ class ContigClassificationSection(_SectionBase):
             return pn.Column(
                 pn.pane.Vega(
                     bp_plot,
+                    # `stretch_width` lets the chart use the full
+                    # width of the contig sub-tab; the height is
+                    # bumped from 420 to 560 so the bar labels
+                    # (cumulative bp + N=count) have headroom and
+                    # do not collide on samples with many BLAST
+                    # matches stacked together.
                     sizing_mode="stretch_width",
-                    height=420,
+                    height=560,
                 ),
                 sub_table,
                 name=name,
@@ -868,7 +887,22 @@ class CoverageSection(_SectionBase):
         # deeply oversampled.
         thresholds = [1, 3, 5, 10, 100]
 
-        for chrom, sub in df.groupby("chrom", sort=True):
+        # Build the summary frame first; its row order (sorted by
+        # ``% >= 10x`` descending) drives both the summary
+        # Tabulator at the top AND the per-reference tab order
+        # below so the two views always line up.
+        summary_df = _coverage_summary_frame(
+            df, chrom_to_name, chrom_to_sources
+        )
+        chrom_order: list[str] = summary_df["chrom"].astype(str).tolist()
+        df = df.copy()
+        df["chrom"] = df["chrom"].astype(str)
+        by_chrom = {c: g for c, g in df.groupby("chrom", sort=False)}
+
+        for chrom in chrom_order:
+            sub = by_chrom.get(chrom)
+            if sub is None or sub.empty:
+                continue
             chart = plot_generator.generate_plot(sub, chrom=str(chrom)).interactive()
             species = chrom_to_name.get(str(chrom), "")
             sources = chrom_to_sources.get(str(chrom), "")
@@ -899,17 +933,38 @@ class CoverageSection(_SectionBase):
             f"Added {df['chrom'].nunique()} interactive coverage plots from {mosdepth_regions}"
         )
 
-        # Per-reference summary table, sorted by % >= 10x descending,
-        # rendered above the per-reference tabs so the reviewer can
-        # scan the entire reference set in one place instead of
-        # clicking every tab. The per-reference detail tables below
-        # use the same threshold-counting logic.
-        summary_table = _coverage_summary_table(df, chrom_to_name, chrom_to_sources)
+        # Per-reference summary table, sorted by % >= 10x
+        # descending. Both the summary row order and the per-tab
+        # order below derive from ``chrom_order`` so the two
+        # views always agree.
+        summary_table = _coverage_summary_table(summary_df)
+
+        # Link the Tabulator's single-row selection to the Tabs'
+        # active index: clicking a summary row jumps the strip
+        # below to that reference's coverage trace. The JS
+        # callback runs client-side in the saved HTML; no Panel
+        # server needed.
+        try:
+            summary_table.jslink(
+                tabs,
+                code={
+                    "selection": (
+                        "if (source.selection.length > 0) "
+                        "{ target.active = source.selection[0]; }"
+                    )
+                },
+            )
+        except Exception as e:  # noqa: BLE001
+            self.logger.warning(
+                f"Could not wire summary-row -> active-tab linkage: {e}"
+            )
+
         summary_block = pn.Column(
             pn.pane.Markdown(
                 "**Coverage summary** — one row per reference, "
-                "sorted by `% >= 10x` descending. Click a tab below "
-                "to drill into a single reference's depth trace.",
+                "sorted by `% >= 10x` descending (same order as "
+                "the tabs below). Click a row to jump the strip "
+                "below to that reference's depth trace.",
                 styles={"margin": "0 10px 4px 10px"},
             ),
             summary_table,
