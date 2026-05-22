@@ -121,10 +121,14 @@ def _coverage_summary_frame(
 def _coverage_summary_table(
     summary_df: pd.DataFrame,
 ) -> pn.widgets.Tabulator:
-    """Render the per-reference summary as a single-selection
-    Tabulator. The single-row selection drives the linked
-    `pn.Tabs.active` index in `CoverageSection`, so clicking a
-    summary row jumps the trace strip to that reference.
+    """Render the per-reference summary as a paginated Tabulator.
+
+    Sortable by the reviewer (Tabulator's client-side sort
+    survives the static HTML save), clipboard-copy enabled. The
+    row order at render time defines the tab order below; the
+    reviewer can re-sort by any column and still find the
+    corresponding tab by row position in the *default* sort
+    because the tabs are pinned to that order at build time.
     """
     return pn.widgets.Tabulator(
         summary_df,
@@ -133,7 +137,6 @@ def _coverage_summary_table(
         layout="fit_columns",
         pagination="local",
         page_size=15,
-        selectable=1,
         configuration={
             "clipboard": True,
             "clipboardCopyRowRange": "active",
@@ -936,35 +939,22 @@ class CoverageSection(_SectionBase):
         # Per-reference summary table, sorted by % >= 10x
         # descending. Both the summary row order and the per-tab
         # order below derive from ``chrom_order`` so the two
-        # views always agree.
+        # views always agree: row N in the table corresponds to
+        # tab N in the strip below.
+        #
+        # Note on click-to-drill: Panel's Tabulator ``selection``
+        # parameter cannot be js-linked to a ``Tabs.active`` index
+        # in static HTML (it needs a live Python kernel). The
+        # matched ordering is the workable substitute — the
+        # reviewer reads the table, notes the row index, and
+        # clicks the matching tab below at the same position.
         summary_table = _coverage_summary_table(summary_df)
-
-        # Link the Tabulator's single-row selection to the Tabs'
-        # active index: clicking a summary row jumps the strip
-        # below to that reference's coverage trace. The JS
-        # callback runs client-side in the saved HTML; no Panel
-        # server needed.
-        try:
-            summary_table.jslink(
-                tabs,
-                code={
-                    "selection": (
-                        "if (source.selection.length > 0) "
-                        "{ target.active = source.selection[0]; }"
-                    )
-                },
-            )
-        except Exception as e:  # noqa: BLE001
-            self.logger.warning(
-                f"Could not wire summary-row -> active-tab linkage: {e}"
-            )
-
         summary_block = pn.Column(
             pn.pane.Markdown(
                 "**Coverage summary** — one row per reference, "
-                "sorted by `% >= 10x` descending (same order as "
-                "the tabs below). Click a row to jump the strip "
-                "below to that reference's depth trace.",
+                "sorted by `% >= 10x` descending. The tabs below "
+                "follow the same order: row 1 here is the first "
+                "tab below, row 2 the second, and so on.",
                 styles={"margin": "0 10px 4px 10px"},
             ),
             summary_table,
