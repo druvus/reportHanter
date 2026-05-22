@@ -109,7 +109,6 @@ class ReportGenerator:
             fastp_json=fastp_json,
             secondary_flagstat_file=secondary_flagstat_file,
             secondary_host=secondary_host,
-            quast_reports=quast_paths,
         )
 
         raw_classification_section = self._build_section(
@@ -119,11 +118,16 @@ class ReportGenerator:
             kaiju_table=kaiju_table,
         )
 
+        # QUAST measures de novo assembly contigs, so it lives
+        # next to the BLAST + geNomad sub-tabs under the contig
+        # classification section rather than alongside the host
+        # alignment stats.
         contig_classification_section = self._build_section(
             "Classification of Contigs",
             self.sections["contig_classification"].generate_section,
             blastn_files=blastn_paths,
             genomad_summaries=genomad_paths,
+            quast_reports=quast_paths,
         )
 
         coverage_section = self._build_section(

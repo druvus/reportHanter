@@ -14,15 +14,16 @@ the original monolithic `virusHanter` Snakefile.
 
 ## What's in the report
 
-- **Alignment Stats** — fastp summary plus host alignment
-  flagstat. Optional QUAST sub-tab per assembler when
-  `virusHanter2` ran QUAST.
+- **Alignment Stats** — fastp read-summary table plus host
+  alignment flagstat panel.
 - **Classification of Raw Reads** — Kraken2 (virus-only and
   domain-level) plus Kaiju bar charts.
 - **Classification of Contigs** — one sub-tab per assembler (e.g.
   `All assemblers`, `MEGAHIT`, `SPAdes`) carrying a BLAST bar
   chart on top of the per-assembler contig table. Optional
-  geNomad sub-tabs per assembler.
+  per-assembler **Assembly (QUAST)** sub-tabs (N50, number of
+  contigs, GC%, etc.) and **geNomad** summary sub-tabs sit next
+  to the BLAST tabs.
 - **Alignment Coverage** — interactive mosdepth coverage trace
   per reference, tabs labelled `<chrom> — <species> [<sources>]`
   where `<sources>` shows which classifier(s) contributed the

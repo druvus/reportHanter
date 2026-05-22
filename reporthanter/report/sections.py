@@ -78,9 +78,6 @@ class AlignmentStatsSection(_SectionBase):
         fastp_json = kwargs.get("fastp_json")
         secondary_flagstat_file = kwargs.get("secondary_flagstat_file")
         secondary_host = kwargs.get("secondary_host", "Secondary")
-        quast_reports = kwargs.get("quast_reports")
-        if not quast_reports and kwargs.get("quast_report"):
-            quast_reports = [kwargs["quast_report"]]
 
         if not flagstat_file or not fastp_json:
             raise ValueError("flagstat_file and fastp_json are required")
@@ -120,17 +117,6 @@ class AlignmentStatsSection(_SectionBase):
 
         flagstat_column = pn.Column(*alignment_components, name="Alignment")
         tab_panes: list = [flagstat_column, fastp_table]
-
-        # Optional QUAST assembly summary, supplied by virusHanter2 when
-        # the QUAST flag is on. One sub-tab per (sample, assembler).
-        if quast_reports:
-            for qpath in quast_reports:
-                try:
-                    quast_processor = QuastProcessor(self.config.get_config("quast"))
-                    quast_data = quast_processor.process(qpath)
-                    tab_panes.append(quast_processor.create_summary_table(quast_data))
-                except Exception as e:  # noqa: BLE001
-                    self.logger.warning(f"Could not render QUAST report {qpath}: {e}")
 
         tabs = pn.Tabs(*tab_panes)
         return pn.Column(header, tabs)
@@ -247,6 +233,13 @@ class ContigClassificationSection(_SectionBase):
         genomad_summaries = kwargs.get("genomad_summaries")
         if not genomad_summaries and kwargs.get("genomad_summary"):
             genomad_summaries = [kwargs["genomad_summary"]]
+        # QUAST measures assembly contigs (N50, # contigs, largest
+        # contig, GC%); it belongs in this section rather than under
+        # Alignment Stats. Accept both the plural and singular form
+        # for symmetry with the BLAST / geNomad parameters.
+        quast_reports = kwargs.get("quast_reports")
+        if not quast_reports and kwargs.get("quast_report"):
+            quast_reports = [kwargs["quast_report"]]
 
         if not blastn_files:
             raise ValueError("blastn_files is required")
@@ -365,7 +358,10 @@ class ContigClassificationSection(_SectionBase):
         header = self._create_header(
             f"""
             ## Classification of Contigs
-            Contigs were classified using BLASTN. {counts_line}
+            Contigs from de novo assembly are classified with
+            BLASTN. {counts_line} When geNomad and QUAST are
+            enabled in the pipeline, an Assembly (QUAST) sub-tab
+            and a geNomad summary sub-tab are added per assembler.
             Select rows and press Ctrl/Cmd-C to copy, or use the
             download button below to export the full table as CSV.
             """
@@ -444,6 +440,26 @@ class ContigClassificationSection(_SectionBase):
                 except Exception as e:  # noqa: BLE001
                     self.logger.warning(
                         f"Could not render geNomad summary {gpath}: {e}"
+                    )
+
+        # Optional QUAST assembly metrics — one sub-tab per assembler
+        # showing assembly quality (N50, number of contigs, largest
+        # contig, GC%, ...). Sits next to the BLAST / geNomad
+        # sub-tabs so the contig evaluation arc (assembly quality →
+        # viral hits → contamination) lives in a single section.
+        if quast_reports:
+            for qpath in quast_reports:
+                try:
+                    quast_processor = QuastProcessor(
+                        self.config.get_config("quast")
+                    )
+                    quast_data = quast_processor.process(qpath)
+                    tab_panes.append(
+                        quast_processor.create_summary_table(quast_data)
+                    )
+                except Exception as e:  # noqa: BLE001
+                    self.logger.warning(
+                        f"Could not render QUAST report {qpath}: {e}"
                     )
 
         tabs = pn.Tabs(*tab_panes)
