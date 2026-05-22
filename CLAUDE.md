@@ -49,29 +49,45 @@ make format             # ruff fix + format
 ```
 
 The CLI is `reporthanter` (defined in `pyproject.toml` as
-`panel_report_cli:main`). Its flag set is part of the public contract
-with `virusHanter2`'s `generate_report` rule and must remain stable:
+`panel_report_cli:main`). Its flag set is part of the public
+contract with `virusHanter2`'s `generate_report` rule and must
+remain stable:
 
 ```
---blastn_file --kraken_file --kaiju_table --fastp_json \
---flagstat_file --mosdepth_regions --output \
-[--quast_report --sample_name --secondary_flagstat_file --secondary_host \
+--blastn_file (repeatable) \
+--kraken_file --kaiju_table --fastp_json --flagstat_file \
+--mosdepth_regions --output \
+[--quast_report (repeatable) --genomad_summary (repeatable) \
+ --virus_names --sample_name \
+ --secondary_flagstat_file --secondary_host \
  --config_file --log_level --validate_only]
 ```
+
+`--blastn_file`, `--quast_report` and `--genomad_summary` use
+`action="append"` so virusHanter2's per-assembler runs can pass
+one path per assembler. The singular form
+(`--blastn_file foo.csv` once) still works.
 
 `--coverage_folder` was removed when `virusHanter2` retired the
 `bam2plot` rule; do not re-introduce it.
 
 ## Public API surface
 
-Two surfaces are exported from `reporthanter` and must keep working:
+Two surfaces are exported from `reporthanter` and must keep
+working:
 
-1. `create_report(...)` — high-level wrapper. Takes
-   `mosdepth_regions` (required) and an optional `quast_report`.
+1. `create_report(...)` — high-level wrapper. Required:
+   `kraken_file`, `kaiju_table`, `fastp_json`, `flagstat_file`,
+   `mosdepth_regions`, plus at least one BLAST CSV via either
+   `blastn_files=[...]` (plural, multi-assembler) or
+   `blastn_file=...` (singular, legacy). Optional plural / singular
+   pairs for `quast_reports` / `quast_report` and
+   `genomad_summaries` / `genomad_summary`.
 2. `ReportGenerator(config)` plus the individual processors
    (`KrakenProcessor`, `KaijuProcessor`, `BlastProcessor`,
    `FastpProcessor`, `FlagstatProcessor`, `CoverageProcessor`,
-   `QuastProcessor`) and matching plot generators.
+   `QuastProcessor`, `GenomadProcessor`) and matching plot
+   generators.
 
 Do not re-introduce the legacy free functions removed in 0.3.0
 (`panel_report`, `wrangle_kraken`, `plot_kraken`, etc.) or the

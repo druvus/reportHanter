@@ -21,41 +21,66 @@ reportHanter/
 ```
 
 Only `README.md`, `CLAUDE.md`, `CHANGELOG.md` and `LICENSE` should
-remain as Markdown at the package root. Any longer document belongs
-under `docs/`.
+remain as Markdown at the package root. Any longer document
+belongs under `docs/`.
 
-## docs/
-
-```
-docs/
-  README.md          Documentation index
-  user-guide/        End-user documentation
-    MIGRATION_GUIDE.md
-    UPGRADE_TO_0.3.0.md
-    VISUAL_IMPROVEMENTS_GUIDE.md
-  developer/         Internal architecture and release notes
-    REPOSITORY_LAYOUT.md
-    VERSION_0.3.0_SUMMARY.md
-    VISUAL_IMPROVEMENTS_SUMMARY.md
-```
-
-## reporthanter/ package
+## Source package — `reporthanter/`
 
 ```
 reporthanter/
-  core/          Configuration, exceptions, abstract bases, interfaces
-  processors/    One module per input tool
-  report/        ReportGenerator and section assembly
-  visualization/ Optional enhanced plotting layer
-  panel_report_cli.py  CLI entry point
+  __init__.py                Re-exports the public API surface
+  panel_report_cli.py        CLI entry point (`reporthanter`)
+  core/                      Configuration, exceptions, abstract
+                             bases, interfaces, colour palettes
+  processors/                One module per input tool: blast,
+                             coverage, fastp, flagstat, genomad,
+                             kaiju, kraken, quast
+  report/                    `ReportGenerator` and section
+                             assembly (alignment, classification
+                             of raw reads, classification of
+                             contigs, alignment coverage)
 ```
 
-## examples/ and scripts/
+There is one canonical rendering path: `ReportGenerator`. The
+parallel `EnhancedReportGenerator` / `VisualizationConfig` /
+`LayoutTemplate` surface that shipped in 0.3.x was retired in
+0.4.0; do not re-introduce a second renderer.
 
-`examples/` contains JSON configuration files under
-`configurations/` and runnable demo scripts under `demos/`. Each
-subdirectory has its own short `README.md`.
+The CLI accepts repeated `--blastn_file`, `--quast_report` and
+`--genomad_summary` flags so `virusHanter2`'s per-assembler runs
+can pass one path per assembler; the singular forms still work
+for one-assembler callers.
 
-`scripts/` holds maintenance utilities. At present it contains
-`test_0_3_structure.py`, a layout sanity check that verifies the
-0.3.x package structure.
+## Tests — `tests/`
+
+`pytest` discovers from `tests/`. Coverage is configured in
+`pyproject.toml` and reports against the `reporthanter` package.
+The CLI end-to-end test (`tests/test_cli.py`) drives the CLI
+against fixtures under `tests/fixtures/` including a tiny
+`mosdepth_regions.bed.gz`.
+
+`scripts/test_0_3_structure.py` is a layout sanity check for the
+0.3+ package structure; run it after non-trivial refactors that
+move files between subpackages.
+
+## Long-form docs — `docs/`
+
+```
+docs/
+  README.md                  Index for this directory
+  developer/
+    REPOSITORY_LAYOUT.md     This document
+```
+
+User-facing documentation is intentionally concise — the package
+overview, CLI flags, Python API quick-start and the link to the
+sibling `virusHanter2` parity notes all live in the top-level
+[`README.md`](../../README.md).
+
+## Examples and scripts
+
+- `examples/` ships configuration files and demonstration
+  scripts. Each subdirectory carries a short `README.md`.
+- `scripts/` holds standalone maintenance scripts (e.g. the 0.3+
+  structural sanity check). These are not part of the runtime
+  package and are not exercised by `make all-checks`.
