@@ -18,24 +18,33 @@ The report follows the pipeline's data-flow order:
 
 - **Read statistics** — fastp summary (number of reads, length,
   Q20/Q30, duplication rate, GC content).
-- **Host alignment** — samtools-flagstat panel for the host
-  alignment, plus the optional secondary-host stats. Shows how
-  many reads were filtered out before classification and
-  assembly.
+- **Host alignment** — KPI tile strip at the top (Total reads /
+  Host mapped / Non-host / % removed / Host-removal tool) over
+  the samtools-flagstat panel, plus the optional secondary-host
+  stats. The host-removal backend (`bwa` or `hostile`) is
+  inferred from the flagstat filename.
 - **Classification of reads** — Kraken2 (virus-only and
   domain-level) plus Kaiju bar charts on the host-removed reads.
-- **Assembly statistics** — one Assembly (QUAST) sub-tab per
-  assembler when `virusHanter2` ran QUAST (N50, number of
-  contigs, largest contig, GC%, ...). Empty placeholder when
-  QUAST was off.
+- **Assembly statistics** — per-assembler QUAST sub-tabs named
+  for the assembler (e.g. `MEGAHIT`, `metaSPAdes`,
+  `rnaviralSPAdes`). With more than one assembler active a
+  "Comparison" sub-tab is pinned first, putting the highlight
+  metrics side by side as one column per assembler.
 - **Assembly classification** — one sub-tab per assembler (e.g.
-  `All assemblers`, `MEGAHIT`, `SPAdes`) carrying a BLAST bar
-  chart on top of the per-assembler contig table. Optional
-  **geNomad** summary sub-tabs sit next to the BLAST tabs.
-- **Alignment coverage** — interactive mosdepth coverage trace
-  per reference, tabs labelled `<chrom> — <species> [<sources>]`
-  where `<sources>` shows which classifier(s) contributed the
-  reference (e.g. `[blast;kraken->genus]`).
+  `All assemblers`, `MEGAHIT`, `metaSPAdes`) carrying a single
+  BLAST bar chart (cumulative contig length per match, with
+  contig count surfaced as a tooltip and a small label at each
+  bar's right edge) on top of the per-assembler contig table.
+  Optional **geNomad** summary sub-tabs sit next to the BLAST
+  tabs.
+- **Alignment coverage** — a per-reference summary table sorted
+  by `% >= 10x` descending sits at the top, so a reviewer can
+  scan every reference in one glance before drilling into a
+  detail tab. Each detail tab carries an interactive mosdepth
+  coverage trace + a stats table (length, mean / median / max
+  depth, bp + % at 1x / 3x / 5x / 10x / 100x). Tab labels
+  read `<chrom> — <species> [<sources>]` where `<sources>`
+  shows which classifier(s) contributed the reference.
 ## Requirements
 
 - Python 3.12+

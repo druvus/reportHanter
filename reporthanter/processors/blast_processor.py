@@ -240,11 +240,19 @@ class BlastPlotGenerator(BasePlotGenerator):
             cornerRadius=3, stroke="white", strokeWidth=1
         )
 
+        # Layer a text mark at the bar tip carrying "N=<count>" so
+        # the contig count survives as visible information even
+        # though the bar length is driven by cumulative bp. This
+        # consolidates the count + bp pair into a single chart;
+        # the count chart we used to render alongside has been
+        # retired because it ranked BLAST matches the same way
+        # the bp chart does on samples where contig lengths
+        # cluster around one value.
         if multi_assembler:
             select_asm = alt.selection_point(
                 fields=["assembler"], bind="legend"
             )
-            return (
+            bars = (
                 chart.encode(
                     alt.X(
                         "sum(read_len):Q",
@@ -270,12 +278,32 @@ class BlastPlotGenerator(BasePlotGenerator):
                             title="Cumulative bp",
                             format=",",
                         ),
+                        alt.Tooltip(
+                            "count(match_name):Q", title="Contigs"
+                        ),
                     ],
                 )
                 .add_params(select_asm)
             )
+            # `count(match_name)` aggregated per (match_name, assembler)
+            # then a text label per bar segment. The label sits at the
+            # rightmost edge of each stacked segment.
+            labels = (
+                alt.Chart(chart_data)
+                .mark_text(align="left", dx=3, color="#333")
+                .encode(
+                    alt.X("sum(read_len):Q", stack="zero"),
+                    alt.Y("match_name:N", sort="-x"),
+                    alt.Detail("assembler:N"),
+                    text=alt.Text("count(match_name):Q", format=","),
+                    opacity=alt.condition(
+                        select_asm, alt.value(0.85), alt.value(0.0)
+                    ),
+                )
+            )
+            return bars + labels
 
-        return chart.encode(
+        bars = chart.encode(
             alt.X(
                 "sum(read_len):Q",
                 title="Cumulative contig length (bp)",
@@ -294,5 +322,16 @@ class BlastPlotGenerator(BasePlotGenerator):
                 alt.Tooltip(
                     "sum(read_len):Q", title="Cumulative bp", format=","
                 ),
+                alt.Tooltip("count(match_name):Q", title="Contigs"),
             ],
         )
+        labels = (
+            alt.Chart(chart_data)
+            .mark_text(align="left", dx=3, color="#333")
+            .encode(
+                alt.X("sum(read_len):Q"),
+                alt.Y("match_name:N", sort="-x"),
+                text=alt.Text("count(match_name):Q", format=","),
+            )
+        )
+        return bars + labels

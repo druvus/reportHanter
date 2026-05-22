@@ -19,6 +19,125 @@ from ..processors.kraken_processor import KrakenPlotGenerator, KrakenProcessor
 from ..processors.quast_processor import QuastProcessor
 
 
+def _host_kpi_strip(
+    flagstat_data: pd.DataFrame, flagstat_file: str
+) -> pn.Row:
+    """Render the host-alignment headline numbers as a row of KPI
+    tiles.
+
+    Reads the parsed flagstat (metric/value DataFrame) for the
+    four scalars the panel cares about and infers the host-removal
+    backend ("bwa" or "hostile") from the flagstat filename.
+    Returns a `pn.Row` of small panes so the strip sits as a
+    single horizontal band above the existing markdown summary
+    and bar chart.
+    """
+    lookup = dict(
+        zip(flagstat_data["metric"], flagstat_data["value"], strict=False)
+    )
+    total = int(lookup.get("total_reads", 0))
+    pct_mapped = float(lookup.get("percent_mapped", 0.0))
+    mapped = int(lookup.get("reads_mapped", round(total * pct_mapped / 100)))
+    unmapped = int(lookup.get("reads_unmapped", total - mapped))
+
+    backend = (
+        "hostile"
+        if "hostile" in flagstat_file.lower()
+        else "bwa"
+    )
+
+    def _tile(label: str, value: str, accent: str = "#067a48") -> pn.Column:
+        return pn.Column(
+            pn.pane.Markdown(
+                f"<div style='font-size:11px;color:#666;"
+                f"text-transform:uppercase;letter-spacing:0.04em'>"
+                f"{label}</div>"
+                f"<div style='font-size:22px;color:#222;"
+                f"font-weight:600;line-height:1.1'>{value}</div>",
+                styles={
+                    "padding": "10px 14px",
+                    "border-left": f"3px solid {accent}",
+                    "background": "#fafafa",
+                    "margin": "6px 4px",
+                },
+                sizing_mode="stretch_width",
+            ),
+        )
+
+    return pn.Row(
+        _tile("Total reads", f"{total:,}"),
+        _tile("Host mapped", f"{mapped:,}"),
+        _tile("Non-host reads", f"{unmapped:,}"),
+        _tile("% removed", f"{pct_mapped:.1f}%"),
+        _tile("Host-removal tool", backend, accent="#04c273"),
+        sizing_mode="stretch_width",
+    )
+
+
+def _coverage_summary_table(
+    df: pd.DataFrame,
+    chrom_to_name: dict[str, str],
+    chrom_to_sources: dict[str, str],
+) -> pn.widgets.Tabulator:
+    """Per-reference summary across every chrom in the mosdepth
+    regions BED. Lets reviewers sort the entire reference set by
+    coverage at one of the standard thresholds rather than
+    clicking every per-reference sub-tab to find the
+    well-covered ones.
+
+    Columns are kept compact: chrom, species, sources, length
+    (bp), mean depth, % >= 5x, % >= 10x. Sort defaults to
+    "% >= 10x" descending so the highest-coverage references
+    float to the top of the table.
+    """
+    if df.empty or "depth" not in df.columns:
+        return pn.widgets.Tabulator(
+            pd.DataFrame(columns=["chrom", "species", "sources"]),
+            disabled=True,
+            show_index=False,
+            layout="fit_columns",
+            pagination=None,
+        )
+
+    rows: list[dict[str, str | float | int]] = []
+    for chrom, sub in df.groupby("chrom", sort=False):
+        window_len = (sub["end"] - sub["start"]).astype(int)
+        ref_length = int(window_len.sum())
+        total_bases = float((sub["depth"] * window_len).sum())
+        mean_depth = total_bases / ref_length if ref_length else 0.0
+        bp_ge_5 = int(window_len[sub["depth"] >= 5].sum())
+        bp_ge_10 = int(window_len[sub["depth"] >= 10].sum())
+        pct_ge_5 = (100.0 * bp_ge_5 / ref_length) if ref_length else 0.0
+        pct_ge_10 = (100.0 * bp_ge_10 / ref_length) if ref_length else 0.0
+        rows.append(
+            {
+                "chrom": str(chrom),
+                "species": chrom_to_name.get(str(chrom), ""),
+                "sources": chrom_to_sources.get(str(chrom), ""),
+                "length": ref_length,
+                "mean_depth": round(mean_depth, 2),
+                "pct_ge_5x": round(pct_ge_5, 1),
+                "pct_ge_10x": round(pct_ge_10, 1),
+            }
+        )
+
+    out = pd.DataFrame(rows).sort_values(
+        "pct_ge_10x", ascending=False, kind="mergesort"
+    )
+    return pn.widgets.Tabulator(
+        out,
+        disabled=True,
+        show_index=False,
+        layout="fit_columns",
+        pagination="local",
+        page_size=15,
+        configuration={
+            "clipboard": True,
+            "clipboardCopyRowRange": "active",
+        },
+    )
+
+
 def _coverage_stats_table(
     sub: pd.DataFrame, thresholds: list[int]
 ) -> pn.widgets.Tabulator:
@@ -184,7 +303,16 @@ class HostAlignmentSection(_SectionBase):
             flagstat_data, "Human"
         )
 
-        components = [human_stats, pn.layout.Divider(), human_pane]
+        # KPI tile strip across the top of the panel. Surfaces the
+        # headline numbers (total reads, host mapped, non-host, %
+        # removed) plus the backend label inferred from the
+        # flagstat filename (hostile writes
+        # `hostile_contamination_flagstat.txt`; bwa writes
+        # `human_contamination_flagstat.txt`). Layout-only — the
+        # numbers come straight from the parsed flagstat DataFrame.
+        kpi_row = _host_kpi_strip(flagstat_data, str(flagstat_file))
+
+        components = [kpi_row, pn.layout.Divider(), human_stats, pn.layout.Divider(), human_pane]
         if secondary_flagstat_file:
             secondary_data = flagstat_processor.process(secondary_flagstat_file)
             secondary_stats, secondary_pane = (
@@ -345,6 +473,10 @@ class AssemblySection(_SectionBase):
             )
 
         tab_panes: list = []
+        # Per-assembler labels + frames collected as we iterate so
+        # the optional Comparison tab can stitch them together
+        # without re-parsing the QUAST files.
+        per_assembler: list[tuple[str, pd.DataFrame]] = []
         for qpath in quast_reports:
             try:
                 quast_processor = QuastProcessor(
@@ -360,6 +492,7 @@ class AssemblySection(_SectionBase):
                 from pathlib import Path as _P
                 parts = _P(str(qpath)).parts
                 label = parts[-3] if len(parts) >= 3 else "Assembly (QUAST)"
+                per_assembler.append((label, quast_data))
                 tab_panes.append(
                     quast_processor.create_summary_table(
                         quast_data, name=label
@@ -369,6 +502,48 @@ class AssemblySection(_SectionBase):
                 self.logger.warning(
                     f"Could not render QUAST report {qpath}: {e}"
                 )
+
+        # Comparison sub-tab pinned at the front when more than one
+        # assembler contributed a report. Rows are the QUAST
+        # highlight metrics (driven by ``QuastProcessor.highlighted``
+        # so the metric set always matches the per-assembler tabs)
+        # and columns are one per assembler — lets the reviewer
+        # contrast N50, # contigs, GC%, etc. across assemblers in a
+        # single view.
+        if len(per_assembler) >= 2:
+            quast_processor = QuastProcessor(self.config.get_config("quast"))
+            merged: pd.DataFrame | None = None
+            for label, frame in per_assembler:
+                highlight = quast_processor.highlighted(frame).copy()
+                value_col = (
+                    highlight.columns[1]
+                    if len(highlight.columns) >= 2
+                    else None
+                )
+                if value_col is None:
+                    continue
+                highlight = highlight[
+                    [quast_processor.METRIC_COLUMN, value_col]
+                ].rename(columns={value_col: label})
+                merged = (
+                    highlight
+                    if merged is None
+                    else merged.merge(
+                        highlight,
+                        on=quast_processor.METRIC_COLUMN,
+                        how="outer",
+                    )
+                )
+            if merged is not None and not merged.empty:
+                comparison = pn.widgets.Tabulator(
+                    merged,
+                    layout="fit_columns",
+                    pagination=None,
+                    show_index=False,
+                    disabled=True,
+                    name="Comparison",
+                )
+                tab_panes.insert(0, comparison)
 
         if not tab_panes:
             return pn.Column(
@@ -548,10 +723,13 @@ class ContigClassificationSection(_SectionBase):
         # Single-assembler runs keep the original two-tab shape
         # (BLAST chart, contig table).
         def _build_assembler_tab(name: str, frame: pd.DataFrame) -> pn.Column:
-            count_plot = blast_plot_generator.generate_plot(frame)
-            # Cumulative-bp companion chart: sums contig lengths
-            # per BLAST match so reviewers see the assembled span
-            # per reference, not just the contig count.
+            # Single bp-driven bar chart. The contig count survives
+            # as a tooltip field and a small text label at each
+            # bar's right edge, so reviewers see both pieces of
+            # data without the visual duplication two side-by-side
+            # bar charts produced on viral-panel data (where contig
+            # lengths cluster around one value and the count chart
+            # and bp chart ranked matches identically).
             bp_plot = blast_plot_generator.create_bp_chart(frame)
             sub_table = pn.widgets.Tabulator(
                 _table_view(frame),
@@ -570,16 +748,7 @@ class ContigClassificationSection(_SectionBase):
                     },
                 },
             )
-            # Fix each Vega pane to stretch_width with a bounded
-            # height. Without the height bound, `stretch_both` lets
-            # the chart container expand to fill its parent and
-            # overlap whatever sits below it in the saved HTML.
             return pn.Column(
-                pn.pane.Vega(
-                    count_plot,
-                    sizing_mode="stretch_width",
-                    height=420,
-                ),
                 pn.pane.Vega(
                     bp_plot,
                     sizing_mode="stretch_width",
@@ -729,4 +898,22 @@ class CoverageSection(_SectionBase):
         self.logger.info(
             f"Added {df['chrom'].nunique()} interactive coverage plots from {mosdepth_regions}"
         )
-        return pn.Column(header, tabs)
+
+        # Per-reference summary table, sorted by % >= 10x descending,
+        # rendered above the per-reference tabs so the reviewer can
+        # scan the entire reference set in one place instead of
+        # clicking every tab. The per-reference detail tables below
+        # use the same threshold-counting logic.
+        summary_table = _coverage_summary_table(df, chrom_to_name, chrom_to_sources)
+        summary_block = pn.Column(
+            pn.pane.Markdown(
+                "**Coverage summary** — one row per reference, "
+                "sorted by `% >= 10x` descending. Click a tab below "
+                "to drill into a single reference's depth trace.",
+                styles={"margin": "0 10px 4px 10px"},
+            ),
+            summary_table,
+            sizing_mode="stretch_width",
+        )
+
+        return pn.Column(header, summary_block, pn.layout.Divider(), tabs)
