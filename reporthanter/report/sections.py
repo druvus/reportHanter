@@ -19,6 +19,65 @@ from ..processors.kraken_processor import KrakenPlotGenerator, KrakenProcessor
 from ..processors.quast_processor import QuastProcessor
 
 
+def _coverage_stats_table(
+    sub: pd.DataFrame, thresholds: list[int]
+) -> pn.widgets.Tabulator:
+    """Per-reference coverage statistics rendered below the trace.
+
+    ``sub`` is the slice of the mosdepth regions BED for one
+    ``chrom``: rows are windowed entries with columns
+    ``chrom, start, end, depth, mid``. The Tabulator below the
+    coverage trace shows reference length, total mapped bases,
+    mean depth, and bp / % at each requested depth threshold.
+
+    The "bp >= T" counts are an approximation in
+    ``COVERAGE_WINDOW``-sized chunks: every window whose mean
+    depth is at least ``T`` contributes ``end - start`` bp. The
+    approximation is tight enough at the 50-100 bp window sizes
+    the pipeline uses; for exact per-base counts, mosdepth's
+    own ``.thresholds.bed.gz`` is the source of truth and could
+    be plumbed in later.
+    """
+    if sub.empty or "depth" not in sub.columns:
+        return pn.widgets.Tabulator(
+            pd.DataFrame({"Metric": ["Reference length"], "Value": ["unknown"]}),
+            disabled=True,
+            show_index=False,
+            layout="fit_columns",
+            pagination=None,
+        )
+
+    window_len = (sub["end"] - sub["start"]).astype(int)
+    ref_length = int(window_len.sum())
+    total_bases = float((sub["depth"] * window_len).sum())
+    mean_depth = total_bases / ref_length if ref_length else 0.0
+
+    rows: list[dict[str, str]] = [
+        {"Metric": "Reference length (bp)", "Value": f"{ref_length:,}"},
+        {"Metric": "Mean depth", "Value": f"{mean_depth:.2f}"},
+        {"Metric": "Median depth", "Value": f"{float(sub['depth'].median()):.2f}"},
+        {"Metric": "Max depth", "Value": f"{int(sub['depth'].max())}"},
+    ]
+    for threshold in thresholds:
+        passing = window_len[sub["depth"] >= threshold].sum()
+        passing_bp = int(passing)
+        pct = (100.0 * passing_bp / ref_length) if ref_length else 0.0
+        rows.append(
+            {
+                "Metric": f"bp >= {threshold}x",
+                "Value": f"{passing_bp:,} ({pct:.1f}%)",
+            }
+        )
+
+    return pn.widgets.Tabulator(
+        pd.DataFrame(rows),
+        disabled=True,
+        show_index=False,
+        layout="fit_columns",
+        pagination=None,
+    )
+
+
 class _SectionBase(ReportSection):
     """Shared scaffolding for report sections: config, logger, header helper."""
 
@@ -292,8 +351,19 @@ class AssemblySection(_SectionBase):
                     self.config.get_config("quast")
                 )
                 quast_data = quast_processor.process(qpath)
+                # Derive the assembler label from the report path:
+                # virusHanter2 writes
+                # ``{sample}/{assembler}/QUAST/report.tsv``, so the
+                # third-from-last path component is the assembler
+                # name. Fall back to "Assembly (QUAST)" on
+                # unexpected paths so the widget still has a label.
+                from pathlib import Path as _P
+                parts = _P(str(qpath)).parts
+                label = parts[-3] if len(parts) >= 3 else "Assembly (QUAST)"
                 tab_panes.append(
-                    quast_processor.create_summary_table(quast_data)
+                    quast_processor.create_summary_table(
+                        quast_data, name=label
+                    )
                 )
             except Exception as e:  # noqa: BLE001
                 self.logger.warning(
@@ -478,7 +548,11 @@ class ContigClassificationSection(_SectionBase):
         # Single-assembler runs keep the original two-tab shape
         # (BLAST chart, contig table).
         def _build_assembler_tab(name: str, frame: pd.DataFrame) -> pn.Column:
-            sub_plot = blast_plot_generator.generate_plot(frame)
+            count_plot = blast_plot_generator.generate_plot(frame)
+            # Cumulative-bp companion chart: sums contig lengths
+            # per BLAST match so reviewers see the assembled span
+            # per reference, not just the contig count.
+            bp_plot = blast_plot_generator.create_bp_chart(frame)
             sub_table = pn.widgets.Tabulator(
                 _table_view(frame),
                 formatters=formatters,
@@ -496,13 +570,18 @@ class ContigClassificationSection(_SectionBase):
                     },
                 },
             )
-            # Fix the Vega pane to stretch_width with a bounded
+            # Fix each Vega pane to stretch_width with a bounded
             # height. Without the height bound, `stretch_both` lets
             # the chart container expand to fill its parent and
-            # overlap the Tabulator below it in the saved HTML.
+            # overlap whatever sits below it in the saved HTML.
             return pn.Column(
                 pn.pane.Vega(
-                    sub_plot,
+                    count_plot,
+                    sizing_mode="stretch_width",
+                    height=420,
+                ),
+                pn.pane.Vega(
+                    bp_plot,
                     sizing_mode="stretch_width",
                     height=420,
                 ),
@@ -612,13 +691,40 @@ class CoverageSection(_SectionBase):
             except Exception as e:  # noqa: BLE001
                 self.logger.warning(f"Could not read virus-names sidecar {virus_names}: {e}")
 
+        # Coverage thresholds reported beneath each trace. 1x is the
+        # parity-locked "any coverage" floor; 3x / 5x / 10x are the
+        # standard clinical depth ladders for consensus quality;
+        # 100x is included for high-coverage references where the
+        # reviewer wants to see how much of the reference was
+        # deeply oversampled.
+        thresholds = [1, 3, 5, 10, 100]
+
         for chrom, sub in df.groupby("chrom", sort=True):
             chart = plot_generator.generate_plot(sub, chrom=str(chrom)).interactive()
             species = chrom_to_name.get(str(chrom), "")
             sources = chrom_to_sources.get(str(chrom), "")
             base = f"{chrom} — {species}" if species else str(chrom)
             label = f"{base} [{sources}]" if sources else base
-            tabs.append(pn.pane.Vega(chart, sizing_mode="stretch_both", name=label))
+
+            # Per-reference statistics table. mosdepth's regions BED
+            # carries depth per window of size COVERAGE_WINDOW; we
+            # approximate "bp at depth >= T" as
+            # sum(window_length where depth >= T). At small window
+            # sizes (50-100 bp) the approximation is tight enough
+            # for the depth ladders typical of viral metagenomics.
+            stats_table = _coverage_stats_table(sub, thresholds)
+
+            tabs.append(
+                pn.Column(
+                    pn.pane.Vega(
+                        chart, sizing_mode="stretch_width", height=380
+                    ),
+                    pn.pane.Markdown("**Coverage statistics**"),
+                    stats_table,
+                    name=label,
+                    sizing_mode="stretch_width",
+                )
+            )
 
         self.logger.info(
             f"Added {df['chrom'].nunique()} interactive coverage plots from {mosdepth_regions}"

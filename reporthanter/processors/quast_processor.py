@@ -68,8 +68,17 @@ class QuastProcessor(BaseDataProcessor):
         ordered = pd.DataFrame({self.METRIC_COLUMN: keep})
         return ordered.merge(data, on=self.METRIC_COLUMN, how="left")
 
-    def create_summary_table(self, data: pd.DataFrame, **_: Any) -> pn.widgets.Tabulator:
-        """Render the highlighted-metric subset as a Tabulator widget."""
+    def create_summary_table(
+        self, data: pd.DataFrame, *, name: str | None = None, **_: Any
+    ) -> pn.widgets.Tabulator:
+        """Render the highlighted-metric subset as a Tabulator widget.
+
+        ``name`` controls the sub-tab label when the widget is
+        appended to a `pn.Tabs`. Callers pass the assembler name
+        (e.g. ``"MEGAHIT"``) so the Assembly statistics section
+        reads ``MEGAHIT`` / ``SPAdes`` / ``rnaviralSPAdes`` rather
+        than three identical ``Assembly (QUAST)`` labels.
+        """
         view = self.highlighted(data)
         return pn.widgets.Tabulator(
             view,
@@ -77,5 +86,5 @@ class QuastProcessor(BaseDataProcessor):
             pagination=None,
             show_index=False,
             disabled=True,
-            name="Assembly (QUAST)",
+            name=name or "Assembly (QUAST)",
         )

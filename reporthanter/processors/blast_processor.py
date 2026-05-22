@@ -198,3 +198,101 @@ class BlastPlotGenerator(BasePlotGenerator):
                 alt.Tooltip("count(match_name):Q", title="Number of contigs"),
             ],
         )
+
+    def create_bp_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
+        """Companion to ``_create_chart`` that sums contig length
+        (``read_len``) per BLAST match.
+
+        The count chart treats each contig equally; for a clinical
+        reviewer looking at coverage breadth the *cumulative base
+        pairs* assigned to a match is the more relevant measure.
+        Three short contigs of 1 kb each contribute less evidence
+        for a 30 kb herpesvirus genome than a single 25 kb contig.
+
+        Falls back to an empty chart when neither ``match_name``
+        nor ``read_len`` is present (e.g. when no contigs were
+        classified).
+        """
+        title = kwargs.get("title", "Cumulative bp per BLAST match")
+
+        if (
+            data.empty
+            or "match_name" not in data.columns
+            or "read_len" not in data.columns
+        ):
+            return self._empty_chart(title="No classified contigs")
+
+        multi_assembler = (
+            "assembler" in data.columns and data["assembler"].nunique() > 1
+        )
+
+        # Normalise read_len to int for safe `sum()` aggregation in
+        # Vega-Lite; the column is otherwise an object dtype on some
+        # CSVs.
+        chart_data = data.copy()
+        chart_data["read_len"] = pd.to_numeric(
+            chart_data["read_len"], errors="coerce"
+        )
+        chart_data = chart_data.dropna(subset=["read_len"])
+        chart_data["read_len"] = chart_data["read_len"].astype(int)
+
+        chart = alt.Chart(chart_data, title=title).mark_bar(
+            cornerRadius=3, stroke="white", strokeWidth=1
+        )
+
+        if multi_assembler:
+            select_asm = alt.selection_point(
+                fields=["assembler"], bind="legend"
+            )
+            return (
+                chart.encode(
+                    alt.X(
+                        "sum(read_len):Q",
+                        title="Cumulative contig length (bp)",
+                        axis=alt.Axis(format=","),
+                        stack="zero",
+                    ),
+                    alt.Y("match_name:N", sort="-x", title=None),
+                    color=alt.Color(
+                        "assembler:N",
+                        title="Assembler",
+                        legend=alt.Legend(title="Assembler"),
+                        scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
+                    ),
+                    opacity=alt.condition(
+                        select_asm, alt.value(1.0), alt.value(0.15)
+                    ),
+                    tooltip=[
+                        alt.Tooltip("match_name:N", title="Match"),
+                        alt.Tooltip("assembler:N", title="Assembler"),
+                        alt.Tooltip(
+                            "sum(read_len):Q",
+                            title="Cumulative bp",
+                            format=",",
+                        ),
+                    ],
+                )
+                .add_params(select_asm)
+            )
+
+        return chart.encode(
+            alt.X(
+                "sum(read_len):Q",
+                title="Cumulative contig length (bp)",
+                axis=alt.Axis(format=","),
+                stack="zero",
+            ),
+            alt.Y("match_name:N", sort="-x", title=None),
+            color=alt.Color(
+                "match_name:N",
+                title=None,
+                legend=None,
+                scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
+            ),
+            tooltip=[
+                alt.Tooltip("match_name:N", title="Match"),
+                alt.Tooltip(
+                    "sum(read_len):Q", title="Cumulative bp", format=","
+                ),
+            ],
+        )
