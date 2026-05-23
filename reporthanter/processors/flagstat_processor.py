@@ -104,14 +104,22 @@ class FlagstatProcessor(BaseDataProcessor):
             name=f"{species} Alignment Stats",
         )
 
-        # Create chart
+        # Create chart. A normalised stacked bar with two segments
+        # only needs one bar of height; the previous
+        # ``stretch_both`` Vega pane let the chart sprawl vertically
+        # because the surrounding Column has no height cap. Pin a
+        # short fixed height + stretch only width so the bar stays a
+        # single horizontal strip beneath the KPI tile row.
         plot_generator = FlagstatPlotGenerator()
         chart = plot_generator.generate_plot(
             data, species=species, title=f"Reads aligned to {species}"
-        ).interactive()
+        )
 
         chart_pane = pn.pane.Vega(
-            chart, sizing_mode="stretch_both", name=f"{species} Alignment Plot"
+            chart,
+            sizing_mode="stretch_width",
+            height=110,
+            name=f"{species} Alignment Plot",
         )
 
         return stats_md, chart_pane
@@ -147,6 +155,7 @@ class FlagstatPlotGenerator(BasePlotGenerator):
         return (
             alt.Chart(viz_data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
+            .properties(width="container", height=40)
             .encode(
                 x=alt.X(
                     "sum(amount)",
