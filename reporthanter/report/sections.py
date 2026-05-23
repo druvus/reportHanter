@@ -739,13 +739,13 @@ class ContigClassificationSection(_SectionBase):
         # Single-assembler runs keep the original two-tab shape
         # (BLAST chart, contig table).
         def _build_assembler_tab(name: str, frame: pd.DataFrame) -> pn.Column:
-            # Single bp-driven bar chart. The contig count survives
-            # as a tooltip field and a small text label at each
-            # bar's right edge, so reviewers see both pieces of
-            # data without the visual duplication two side-by-side
-            # bar charts produced on viral-panel data (where contig
-            # lengths cluster around one value and the count chart
-            # and bp chart ranked matches identically).
+            # Two separate bar charts so each metric carries its own
+            # title and axis. The earlier consolidation overlaid
+            # count as a text label on the bp chart, which read as
+            # ambiguous ("the chart title says bp but the labels
+            # look like the metric"). Splitting them is clearer:
+            # one chart per question.
+            count_plot = blast_plot_generator.generate_plot(frame)
             bp_plot = blast_plot_generator.create_bp_chart(frame)
             sub_table = pn.widgets.Tabulator(
                 _table_view(frame),
@@ -765,16 +765,23 @@ class ContigClassificationSection(_SectionBase):
                 },
             )
             return pn.Column(
+                pn.pane.Markdown(
+                    "**Number of contigs per BLAST match**",
+                    styles={"margin": "8px 10px 0 10px"},
+                ),
+                pn.pane.Vega(
+                    count_plot,
+                    sizing_mode="stretch_width",
+                    height=420,
+                ),
+                pn.pane.Markdown(
+                    "**Cumulative contig length per BLAST match (bp)**",
+                    styles={"margin": "14px 10px 0 10px"},
+                ),
                 pn.pane.Vega(
                     bp_plot,
-                    # `stretch_width` lets the chart use the full
-                    # width of the contig sub-tab; the height is
-                    # bumped from 420 to 560 so the bar labels
-                    # (cumulative bp + N=count) have headroom and
-                    # do not collide on samples with many BLAST
-                    # matches stacked together.
                     sizing_mode="stretch_width",
-                    height=560,
+                    height=420,
                 ),
                 sub_table,
                 name=name,
