@@ -118,6 +118,23 @@ def _coverage_summary_frame(
     )
 
 
+def _ncbi_nuccore_link_formatter() -> dict:
+    """Tabulator link-formatter spec that turns a cell's value
+    into ``https://www.ncbi.nlm.nih.gov/nuccore/<value>`` and
+    opens the link in a new browser tab.
+
+    Tabulator's ``link`` formatter combines the cell's value with
+    a ``urlPrefix`` to build the href, leaving the cell text as
+    the value itself. The link survives the static HTML save
+    because it is rendered client-side by Tabulator.js.
+    """
+    return {
+        "type": "link",
+        "urlPrefix": "https://www.ncbi.nlm.nih.gov/nuccore/",
+        "target": "_blank",
+    }
+
+
 def _coverage_summary_table(
     summary_df: pd.DataFrame,
 ) -> pn.widgets.Tabulator:
@@ -129,7 +146,14 @@ def _coverage_summary_table(
     reviewer can re-sort by any column and still find the
     corresponding tab by row position in the *default* sort
     because the tabs are pinned to that order at build time.
+
+    The ``chrom`` cell renders as a link to the NCBI Nucleotide
+    record so a reviewer can pop a reference's GenBank entry
+    open without leaving the report.
     """
+    formatters: dict = {}
+    if "chrom" in summary_df.columns:
+        formatters["chrom"] = _ncbi_nuccore_link_formatter()
     return pn.widgets.Tabulator(
         summary_df,
         disabled=True,
@@ -137,6 +161,7 @@ def _coverage_summary_table(
         layout="fit_columns",
         pagination="local",
         page_size=15,
+        formatters=formatters,
         configuration={
             "clipboard": True,
             "clipboardCopyRowRange": "active",
@@ -660,6 +685,12 @@ class ContigClassificationSection(_SectionBase):
             formatters["sequence"] = {
                 "type": "textarea",
             }
+        # `accession` carries NCBI nucleotide accessions (e.g.
+        # NC_009334). Linkify so a reviewer can click straight
+        # through to the NCBI Nucleotide record. Opens in a new
+        # tab so the report's own tab stays put.
+        if "accession" in table_data.columns:
+            formatters["accession"] = _ncbi_nuccore_link_formatter()
 
         blast_table = pn.widgets.Tabulator(
             table_data,

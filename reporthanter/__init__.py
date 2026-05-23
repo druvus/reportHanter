@@ -22,7 +22,7 @@ from .processors.quast_processor import QuastProcessor
 # Main report generator
 from .report.generator import ReportGenerator
 
-__version__ = "0.5.9"
+__version__ = "0.5.10"
 
 __all__ = [
     "BlastPlotGenerator",
