@@ -20,9 +20,10 @@ from .processors.kraken_processor import KrakenPlotGenerator, KrakenProcessor
 from .processors.quast_processor import QuastProcessor
 
 # Main report generator
+from .report.dashboard import DashboardSection
 from .report.generator import ReportGenerator
 
-__version__ = "0.5.11"
+__version__ = "0.6.0"
 
 __all__ = [
     "BlastPlotGenerator",
@@ -30,6 +31,7 @@ __all__ = [
     "ConfigurationError",
     "CoveragePlotGenerator",
     "CoverageProcessor",
+    "DashboardSection",
     "DataProcessingError",
     "DefaultConfig",
     "FastpProcessor",

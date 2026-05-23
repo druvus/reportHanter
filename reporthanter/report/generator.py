@@ -10,6 +10,7 @@ import panel as pn
 
 from ..core.config import DefaultConfig
 from ..core.exceptions import ReportGenerationError
+from .dashboard import DashboardSection
 from .sections import (
     AssemblySection,
     ContigClassificationSection,
@@ -36,6 +37,7 @@ class ReportGenerator:
         # classification → assembly metrics → contig classification
         # → per-reference coverage.
         self.sections = {
+            "dashboard": DashboardSection(self.config),
             "read_statistics": ReadStatisticsSection(self.config),
             "host_alignment": HostAlignmentSection(self.config),
             "raw_classification": RawClassificationSection(self.config),
@@ -110,6 +112,20 @@ class ReportGenerator:
         quast_paths = self._coalesce_paths(quast_reports, quast_report)
         genomad_paths = self._coalesce_paths(genomad_summaries, genomad_summary)
 
+        dashboard_section = self._build_section(
+            "Dashboard",
+            self.sections["dashboard"].generate_section,
+            sample_name=sample_name,
+            fastp_json=fastp_json,
+            flagstat_file=flagstat_file,
+            kraken_file=kraken_file,
+            kaiju_table=kaiju_table,
+            blastn_files=blastn_paths,
+            quast_reports=quast_paths,
+            mosdepth_regions=mosdepth_regions,
+            virus_names=virus_names,
+        )
+
         read_statistics_section = self._build_section(
             "Read statistics",
             self.sections["read_statistics"].generate_section,
@@ -157,6 +173,7 @@ class ReportGenerator:
         try:
             header = self._create_main_header(sample_name)
             main_tabs = pn.Tabs(
+                ("Dashboard", dashboard_section),
                 ("Read statistics", read_statistics_section),
                 ("Host alignment", host_alignment_section),
                 ("Classification of reads", raw_classification_section),
@@ -186,7 +203,7 @@ class ReportGenerator:
         without surprising callers that pass both.
         """
         items: list[Path] = []
-        for x in (plural or []):
+        for x in plural or []:
             if x:
                 items.append(Path(x))
         if singular:

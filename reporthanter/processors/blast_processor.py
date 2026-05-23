@@ -111,6 +111,38 @@ class BlastProcessor(BaseDataProcessor):
 
         return result_df
 
+    def top_matches_by_bp(self, data: pd.DataFrame, n: int = 5) -> pd.DataFrame:
+        """Return the top ``n`` BLAST match_names by cumulative
+        contig length.
+
+        Reduces the per-contig BLAST frame to one row per
+        ``match_name`` carrying the contig count and the cumulative
+        ``read_len`` in bp, sorted by cumulative bp descending. Used
+        by the Dashboard landing tab to surface the headline
+        BLAST hits without redrawing the full bar chart.
+
+        When ``read_len`` is absent or non-numeric on every row the
+        helper falls back to a count-only ranking so the column is
+        still populated.
+        """
+        if data.empty or "match_name" not in data.columns:
+            return pd.DataFrame(columns=["match_name", "contigs", "cumulative_bp"])
+        frame = data.copy()
+        if "read_len" in frame.columns:
+            frame["read_len"] = pd.to_numeric(frame["read_len"], errors="coerce")
+        else:
+            frame["read_len"] = pd.NA
+        grouped = (
+            frame.groupby("match_name", dropna=True)
+            .agg(contigs=("match_name", "size"), cumulative_bp=("read_len", "sum"))
+            .reset_index()
+        )
+        grouped["cumulative_bp"] = (
+            pd.to_numeric(grouped["cumulative_bp"], errors="coerce").fillna(0).astype(int)
+        )
+        sort_col = "cumulative_bp" if grouped["cumulative_bp"].sum() > 0 else "contigs"
+        return grouped.sort_values(sort_col, ascending=False).head(n).reset_index(drop=True)
+
 
 class BlastPlotGenerator(BasePlotGenerator):
     """Generates Altair charts for BLAST results."""
@@ -138,45 +170,36 @@ class BlastPlotGenerator(BasePlotGenerator):
         if data.empty or "match_name" not in data.columns:
             return self._empty_chart(title="No classified contigs")
 
-        multi_assembler = (
-            "assembler" in data.columns and data["assembler"].nunique() > 1
-        )
+        multi_assembler = "assembler" in data.columns and data["assembler"].nunique() > 1
 
-        chart = alt.Chart(data, title=title).mark_bar(
-            cornerRadius=3, stroke="white", strokeWidth=1
-        )
+        chart = alt.Chart(data, title=title).mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
 
         if multi_assembler:
             # Legend-bound selection so reviewers can toggle each
             # assembler's contribution by clicking the legend in the
             # saved static HTML (no Panel server needed).
-            select_asm = alt.selection_point(
-                fields=["assembler"], bind="legend"
-            )
-            chart = (
-                chart.encode(
-                    alt.X(
-                        "count():Q",
-                        title="Number of contigs",
-                        axis=alt.Axis(format="d", tickMinStep=1),
-                        stack="zero",
-                    ),
-                    alt.Y("match_name:N", sort="-x", title=None),
-                    color=alt.Color(
-                        "assembler:N",
-                        title="Assembler",
-                        legend=alt.Legend(title="Assembler"),
-                        scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
-                    ),
-                    opacity=alt.condition(select_asm, alt.value(1.0), alt.value(0.15)),
-                    tooltip=[
-                        alt.Tooltip("match_name:N", title="Match"),
-                        alt.Tooltip("assembler:N", title="Assembler"),
-                        alt.Tooltip("count():Q", title="Number of contigs"),
-                    ],
-                )
-                .add_params(select_asm)
-            )
+            select_asm = alt.selection_point(fields=["assembler"], bind="legend")
+            chart = chart.encode(
+                alt.X(
+                    "count():Q",
+                    title="Number of contigs",
+                    axis=alt.Axis(format="d", tickMinStep=1),
+                    stack="zero",
+                ),
+                alt.Y("match_name:N", sort="-x", title=None),
+                color=alt.Color(
+                    "assembler:N",
+                    title="Assembler",
+                    legend=alt.Legend(title="Assembler"),
+                    scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
+                ),
+                opacity=alt.condition(select_asm, alt.value(1.0), alt.value(0.15)),
+                tooltip=[
+                    alt.Tooltip("match_name:N", title="Match"),
+                    alt.Tooltip("assembler:N", title="Assembler"),
+                    alt.Tooltip("count():Q", title="Number of contigs"),
+                ],
+            ).add_params(select_asm)
             return chart
 
         return chart.encode(
@@ -215,24 +238,16 @@ class BlastPlotGenerator(BasePlotGenerator):
         """
         title = kwargs.get("title", "Cumulative bp per BLAST match")
 
-        if (
-            data.empty
-            or "match_name" not in data.columns
-            or "read_len" not in data.columns
-        ):
+        if data.empty or "match_name" not in data.columns or "read_len" not in data.columns:
             return self._empty_chart(title="No classified contigs")
 
-        multi_assembler = (
-            "assembler" in data.columns and data["assembler"].nunique() > 1
-        )
+        multi_assembler = "assembler" in data.columns and data["assembler"].nunique() > 1
 
         # Normalise read_len to int for safe `sum()` aggregation in
         # Vega-Lite; the column is otherwise an object dtype on some
         # CSVs.
         chart_data = data.copy()
-        chart_data["read_len"] = pd.to_numeric(
-            chart_data["read_len"], errors="coerce"
-        )
+        chart_data["read_len"] = pd.to_numeric(chart_data["read_len"], errors="coerce")
         chart_data = chart_data.dropna(subset=["read_len"])
         chart_data["read_len"] = chart_data["read_len"].astype(int)
 
@@ -252,39 +267,32 @@ class BlastPlotGenerator(BasePlotGenerator):
         # in `ContigClassificationSection` so the two metrics
         # have distinct titles and cannot be confused.
         if multi_assembler:
-            select_asm = alt.selection_point(
-                fields=["assembler"], bind="legend"
-            )
-            return (
-                chart.encode(
-                    alt.X(
+            select_asm = alt.selection_point(fields=["assembler"], bind="legend")
+            return chart.encode(
+                alt.X(
+                    "sum(read_len):Q",
+                    title="Cumulative contig length (bp)",
+                    axis=alt.Axis(format=","),
+                    stack="zero",
+                ),
+                alt.Y("match_name:N", sort="-x", title=None),
+                color=alt.Color(
+                    "assembler:N",
+                    title="Assembler",
+                    legend=alt.Legend(title="Assembler"),
+                    scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
+                ),
+                opacity=alt.condition(select_asm, alt.value(1.0), alt.value(0.15)),
+                tooltip=[
+                    alt.Tooltip("match_name:N", title="Match"),
+                    alt.Tooltip("assembler:N", title="Assembler"),
+                    alt.Tooltip(
                         "sum(read_len):Q",
-                        title="Cumulative contig length (bp)",
-                        axis=alt.Axis(format=","),
-                        stack="zero",
+                        title="Cumulative bp",
+                        format=",",
                     ),
-                    alt.Y("match_name:N", sort="-x", title=None),
-                    color=alt.Color(
-                        "assembler:N",
-                        title="Assembler",
-                        legend=alt.Legend(title="Assembler"),
-                        scale=alt.Scale(range=TAXONOMY_COLORS["mixed"]),
-                    ),
-                    opacity=alt.condition(
-                        select_asm, alt.value(1.0), alt.value(0.15)
-                    ),
-                    tooltip=[
-                        alt.Tooltip("match_name:N", title="Match"),
-                        alt.Tooltip("assembler:N", title="Assembler"),
-                        alt.Tooltip(
-                            "sum(read_len):Q",
-                            title="Cumulative bp",
-                            format=",",
-                        ),
-                    ],
-                )
-                .add_params(select_asm)
-            )
+                ],
+            ).add_params(select_asm)
 
         return chart.encode(
             alt.X(
@@ -302,8 +310,6 @@ class BlastPlotGenerator(BasePlotGenerator):
             ),
             tooltip=[
                 alt.Tooltip("match_name:N", title="Match"),
-                alt.Tooltip(
-                    "sum(read_len):Q", title="Cumulative bp", format=","
-                ),
+                alt.Tooltip("sum(read_len):Q", title="Cumulative bp", format=","),
             ],
         )
