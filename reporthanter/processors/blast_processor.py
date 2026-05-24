@@ -172,8 +172,15 @@ class BlastPlotGenerator(BasePlotGenerator):
 
         multi_assembler = "assembler" in data.columns and data["assembler"].nunique() > 1
 
+        # Keep only the columns the chart references so neither the
+        # raw BLAST stitle (``matches``) nor any ``*_raw`` audit
+        # column from the upstream canonicaliser leaks into the
+        # Vega data embed.
+        chart_cols = [c for c in ("match_name", "assembler") if c in data.columns]
+        chart_data = data[chart_cols].copy()
+
         chart = (
-            alt.Chart(data, title=title)
+            alt.Chart(chart_data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
             .properties(width="container", height=alt.Step(22))
         )
@@ -247,10 +254,13 @@ class BlastPlotGenerator(BasePlotGenerator):
 
         multi_assembler = "assembler" in data.columns and data["assembler"].nunique() > 1
 
-        # Normalise read_len to int for safe `sum()` aggregation in
-        # Vega-Lite; the column is otherwise an object dtype on some
-        # CSVs.
-        chart_data = data.copy()
+        # Keep only the columns the chart references (match_name,
+        # assembler, read_len) so neither the raw BLAST stitle
+        # (``matches``) nor any ``*_raw`` audit column leaks into
+        # the Vega data embed. Normalise read_len to int for safe
+        # `sum()` aggregation in Vega-Lite.
+        keep = [c for c in ("match_name", "assembler", "read_len") if c in data.columns]
+        chart_data = data[keep].copy()
         chart_data["read_len"] = pd.to_numeric(chart_data["read_len"], errors="coerce")
         chart_data = chart_data.dropna(subset=["read_len"])
         chart_data["read_len"] = chart_data["read_len"].astype(int)

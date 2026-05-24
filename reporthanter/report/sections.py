@@ -659,7 +659,20 @@ class ContigClassificationSection(_SectionBase):
             """
             if frame.empty:
                 return pd.DataFrame({"sequence": ["NO SEQUENCES GENERATED"]})
-            columns_to_drop = ["name", "matches", "sample_id"]
+            # Drop bookkeeping columns and the audit-only "_raw"
+            # columns the upstream canonicaliser keeps alongside the
+            # ICTV-canonical match_name. The raw stitle in `matches`
+            # and the un-canonicalised name in `match_name_raw` are
+            # still present in the on-disk CSV for audit; only the
+            # rendered Tabulator (and therefore the HTML) hides them
+            # so the viewer does not see two different names for the
+            # same species.
+            columns_to_drop = [
+                "name",
+                "matches",
+                "sample_id",
+                "match_name_raw",
+            ]
             view = frame.drop(
                 columns=[col for col in columns_to_drop if col in frame.columns]
             )

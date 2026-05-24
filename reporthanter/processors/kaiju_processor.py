@@ -33,8 +33,16 @@ class KaijuProcessor(BaseDataProcessor):
         return True
 
     def _process_file(self, file_path: str | Path) -> pd.DataFrame:
-        """Process Kaiju TSV file into DataFrame."""
+        """Process Kaiju TSV file into DataFrame.
+
+        Drops any ``*_raw`` audit columns the upstream pipeline keeps
+        alongside the canonicalised ``taxon_name`` so they cannot
+        leak through the Vega data embed into the rendered HTML.
+        """
         df = pd.read_csv(file_path, sep="\t")
+        drop = [c for c in df.columns if c.endswith("_raw")]
+        if drop:
+            df = df.drop(columns=drop)
         return df.assign(percent=lambda x: x.percent / 100)
 
     def filter_data(
