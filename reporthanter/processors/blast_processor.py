@@ -172,7 +172,11 @@ class BlastPlotGenerator(BasePlotGenerator):
 
         multi_assembler = "assembler" in data.columns and data["assembler"].nunique() > 1
 
-        chart = alt.Chart(data, title=title).mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
+        chart = (
+            alt.Chart(data, title=title)
+            .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
+            .properties(width="container", height=alt.Step(22))
+        )
 
         if multi_assembler:
             # Legend-bound selection so reviewers can toggle each
@@ -251,15 +255,18 @@ class BlastPlotGenerator(BasePlotGenerator):
         chart_data = chart_data.dropna(subset=["read_len"])
         chart_data["read_len"] = chart_data["read_len"].astype(int)
 
-        # Set an explicit width / height on the chart so the
-        # Tabulator beneath does not crowd the bars at narrow
-        # browser widths. Panel's `stretch_width` on the pane will
-        # then scale the chart up; this just provides a wider
-        # default basis.
+        # Step-based height: Vega-Lite allocates 22px per category so
+        # the chart grows with the number of matches. A fixed height
+        # caused two failure modes: long lists got compressed into
+        # unreadable bars, and the chart's intrinsic height could
+        # exceed the surrounding pane and clip the x-axis at the
+        # bottom. Pairing alt.Step(...) with a stretch_width Vega pane
+        # that has no fixed height lets the chart drive its own
+        # vertical extent and keeps the axis visible.
         chart = (
             alt.Chart(chart_data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
-            .properties(width="container", height=520)
+            .properties(width="container", height=alt.Step(22))
         )
 
         # Clean bp bar chart, no overlaid count labels. The

@@ -803,7 +803,6 @@ class ContigClassificationSection(_SectionBase):
                 pn.pane.Vega(
                     count_plot,
                     sizing_mode="stretch_width",
-                    height=420,
                 ),
                 pn.pane.Markdown(
                     "**Cumulative contig length per BLAST match (bp)**",
@@ -812,7 +811,6 @@ class ContigClassificationSection(_SectionBase):
                 pn.pane.Vega(
                     bp_plot,
                     sizing_mode="stretch_width",
-                    height=420,
                 ),
                 sub_table,
                 name=name,
