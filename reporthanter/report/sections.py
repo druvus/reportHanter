@@ -78,6 +78,7 @@ def _coverage_summary_frame(
     df: pd.DataFrame,
     chrom_to_name: dict[str, str],
     chrom_to_sources: dict[str, str],
+    chrom_to_aliases: dict[str, str] | None = None,
 ) -> pd.DataFrame:
     """Build the per-reference summary DataFrame (no widget).
 
@@ -87,8 +88,9 @@ def _coverage_summary_frame(
     `pct_ge_10x` descending sort).
     """
     if df.empty or "depth" not in df.columns:
-        return pd.DataFrame(columns=["chrom", "species", "sources"])
+        return pd.DataFrame(columns=["chrom", "species", "aliases", "sources"])
 
+    aliases_map = chrom_to_aliases or {}
     rows: list[dict[str, str | float | int]] = []
     for chrom, sub in df.groupby("chrom", sort=False):
         window_len = (sub["end"] - sub["start"]).astype(int)
@@ -103,6 +105,7 @@ def _coverage_summary_frame(
             {
                 "chrom": str(chrom),
                 "species": chrom_to_name.get(str(chrom), ""),
+                "aliases": aliases_map.get(str(chrom), ""),
                 "sources": chrom_to_sources.get(str(chrom), ""),
                 "length": ref_length,
                 "mean_depth": round(mean_depth, 2),
@@ -904,6 +907,7 @@ class CoverageSection(_SectionBase):
 
         chrom_to_name: dict[str, str] = {}
         chrom_to_sources: dict[str, str] = {}
+        chrom_to_aliases: dict[str, str] = {}
         if virus_names:
             try:
                 names_df = pd.read_csv(virus_names, sep="\t")
@@ -928,6 +932,20 @@ class CoverageSection(_SectionBase):
                             strict=False,
                         )
                     )
+                # Optional `aliases` column added when the upstream
+                # canonicaliser collected the legacy NCBI scientific
+                # name plus acronyms / common names from names.dmp
+                # alongside the ICTV-binomial. Carried into the
+                # Coverage summary tables and the Dashboard so
+                # scientists can still recognise renamed species.
+                if "aliases" in names_df.columns:
+                    chrom_to_aliases = dict(
+                        zip(
+                            names_df["chrom"].astype(str),
+                            names_df["aliases"].fillna("").astype(str),
+                            strict=False,
+                        )
+                    )
             except Exception as e:  # noqa: BLE001
                 self.logger.warning(f"Could not read virus-names sidecar {virus_names}: {e}")
 
@@ -944,7 +962,7 @@ class CoverageSection(_SectionBase):
         # Tabulator at the top AND the per-reference tab order
         # below so the two views always line up.
         summary_df = _coverage_summary_frame(
-            df, chrom_to_name, chrom_to_sources
+            df, chrom_to_name, chrom_to_sources, chrom_to_aliases
         )
         chrom_order: list[str] = summary_df["chrom"].astype(str).tolist()
         df = df.copy()

@@ -141,7 +141,19 @@ class BlastProcessor(BaseDataProcessor):
             pd.to_numeric(grouped["cumulative_bp"], errors="coerce").fillna(0).astype(int)
         )
         sort_col = "cumulative_bp" if grouped["cumulative_bp"].sum() > 0 else "contigs"
-        return grouped.sort_values(sort_col, ascending=False).head(n).reset_index(drop=True)
+        top = grouped.sort_values(sort_col, ascending=False).head(n).reset_index(drop=True)
+        # Carry the aliases column through. It is constant per
+        # match_name after the upstream canonicalisation, so pick the
+        # first non-empty value for each group.
+        if "aliases" in frame.columns:
+            alias_map = (
+                frame.dropna(subset=["match_name"])
+                .assign(aliases=lambda d: d["aliases"].fillna(""))
+                .groupby("match_name")["aliases"]
+                .agg(lambda s: next((v for v in s if v), ""))
+            )
+            top["aliases"] = top["match_name"].map(alias_map).fillna("")
+        return top
 
 
 class BlastPlotGenerator(BasePlotGenerator):

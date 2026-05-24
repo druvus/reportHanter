@@ -256,15 +256,18 @@ class DashboardSection(ReportSection):
             config = dict(self.config.get_config("filtering.kraken"))
             config["max_entries"] = 5
             filt, _ = kp.filter_data(kdata, virus_only=True, **config)
+            cols = ["name", "percent", "count_clades"]
+            rename = {
+                "name": "Species",
+                "percent": "% reads",
+                "count_clades": "Reads",
+            }
+            if "aliases" in filt.columns:
+                cols.append("aliases")
+                rename["aliases"] = "Also known as"
             view = (
-                filt[["name", "percent", "count_clades"]]
-                .rename(
-                    columns={
-                        "name": "Species",
-                        "percent": "% reads",
-                        "count_clades": "Reads",
-                    }
-                )
+                filt[cols]
+                .rename(columns=rename)
                 .assign(**{"% reads": lambda d: (d["% reads"] * 100).round(2)})
             )
             return pn.Column(
@@ -289,15 +292,18 @@ class DashboardSection(ReportSection):
             config = dict(self.config.get_config("filtering.kaiju"))
             config["max_entries"] = 5
             filt, _ = kp.filter_data(kdata, **config)
+            cols = ["taxon_name", "percent", "reads"]
+            rename = {
+                "taxon_name": "Taxon",
+                "percent": "% reads",
+                "reads": "Reads",
+            }
+            if "aliases" in filt.columns:
+                cols.append("aliases")
+                rename["aliases"] = "Also known as"
             view = (
-                filt[["taxon_name", "percent", "reads"]]
-                .rename(
-                    columns={
-                        "taxon_name": "Taxon",
-                        "percent": "% reads",
-                        "reads": "Reads",
-                    }
-                )
+                filt[cols]
+                .rename(columns=rename)
                 .assign(**{"% reads": lambda d: (d["% reads"] * 100).round(2)})
             )
             return pn.Column(
@@ -335,6 +341,7 @@ class DashboardSection(ReportSection):
                 "match_name": "Match",
                 "contigs": "Contigs",
                 "cumulative_bp": "Cumulative bp",
+                "aliases": "Also known as",
             }
         )
         return pn.Column(
@@ -393,6 +400,7 @@ class DashboardSection(ReportSection):
             return pn.pane.Markdown("*No references aligned.*", styles={"margin": "0 10px"})
         chrom_to_name: dict[str, str] = {}
         chrom_to_sources: dict[str, str] = {}
+        chrom_to_aliases: dict[str, str] = {}
         if virus_names:
             try:
                 names_df = pd.read_csv(virus_names, sep="\t")
@@ -412,12 +420,24 @@ class DashboardSection(ReportSection):
                             strict=False,
                         )
                     )
+                if "aliases" in names_df.columns:
+                    chrom_to_aliases = dict(
+                        zip(
+                            names_df["chrom"].astype(str),
+                            names_df["aliases"].fillna("").astype(str),
+                            strict=False,
+                        )
+                    )
             except Exception as exc:  # noqa: BLE001
                 self.logger.warning(f"Could not read virus-names sidecar {virus_names}: {exc}")
-        summary = _coverage_summary_frame(df, chrom_to_name, chrom_to_sources)
+        summary = _coverage_summary_frame(
+            df, chrom_to_name, chrom_to_sources, chrom_to_aliases
+        )
         if summary.empty:
             return pn.pane.Markdown("*No references aligned.*")
-        cols = ["chrom", "species", "length", "mean_depth", "pct_ge_5x", "pct_ge_10x"]
+        cols = ["chrom", "species", "aliases", "length", "mean_depth", "pct_ge_5x", "pct_ge_10x"]
+        if "aliases" not in summary.columns or summary["aliases"].eq("").all():
+            cols = [c for c in cols if c != "aliases"]
         formatters = {"chrom": _ncbi_nuccore_link_formatter()}
 
         best_covered = summary.head(5)[cols].copy()
