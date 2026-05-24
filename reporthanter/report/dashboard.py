@@ -417,6 +417,32 @@ class DashboardSection(ReportSection):
         summary = _coverage_summary_frame(df, chrom_to_name, chrom_to_sources)
         if summary.empty:
             return pn.pane.Markdown("*No references aligned.*")
-        view = summary.head(5)[["chrom", "species", "length", "mean_depth", "pct_ge_10x"]].copy()
+        cols = ["chrom", "species", "length", "mean_depth", "pct_ge_5x", "pct_ge_10x"]
         formatters = {"chrom": _ncbi_nuccore_link_formatter()}
-        return _compact_table(view, name="Best-covered references", formatters=formatters)
+
+        best_covered = summary.head(5)[cols].copy()
+        best_covered_table = _compact_table(
+            best_covered, name="Best-covered references", formatters=formatters
+        )
+
+        # Same per-reference frame, re-sorted by mean depth. The two
+        # rankings often agree at the top, but a short reference with
+        # very deep coverage can rank highly here while a longer one
+        # with broad-but-shallow coverage wins on percent breadth.
+        top_depth = (
+            summary.sort_values("mean_depth", ascending=False, kind="mergesort")
+            .head(5)[cols]
+            .copy()
+        )
+        top_depth_table = _compact_table(
+            top_depth, name="Highest mean depth references", formatters=formatters
+        )
+
+        return pn.Column(
+            best_covered_table,
+            pn.pane.Markdown(
+                "### Highest mean depth references", styles={"margin": "10px 10px 0 10px"}
+            ),
+            top_depth_table,
+            sizing_mode="stretch_width",
+        )
