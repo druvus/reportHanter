@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-05-24
+
+### Added
+- "Also known as" column in the Dashboard top-5 Kraken / Kaiju /
+  BLAST cards, the Best-covered references + Highest mean depth
+  references tables and the Coverage section's summary table. The
+  column is populated when the upstream pipeline (virusHanter2
+  >= today's commit) supplies an `aliases` column carrying the
+  legacy NCBI scientific name plus the non-scientific NCBI name
+  categories (acronym, common name, equivalent name, synonym) for
+  the row taxid and its species ancestor.
+- `_coverage_summary_frame` gains an optional `chrom_to_aliases`
+  argument so the alias column threads through the Coverage
+  summary frame to both the main Coverage section and the
+  Dashboard.
+
+### Changed
+- `BlastProcessor.top_matches_by_bp` propagates the `aliases`
+  column through the group-by so the Dashboard BLAST card can
+  surface legacy synonyms alongside the canonical match name.
+
+## [0.6.3] - 2026-05-24
+
+### Changed
+- BLAST chart data and Tabulator views in the Assembly
+  classification tab now ship only the columns the chart / table
+  references. The raw BLAST stitle in `matches` and the
+  audit-only `*_raw` columns the virusHanter2 canonicaliser keeps
+  alongside the ICTV-binomial name no longer leak through the
+  Vega data embed into the rendered HTML. `KaijuProcessor` strips
+  `*_raw` columns at read time.
+
+## [0.6.2] - 2026-05-23
+
+### Fixed
+- BLAST chart x-axis was clipped at the bottom because the chart
+  asked for 520 px while the surrounding Vega pane was capped at
+  420 px. Both the count and bp charts now use step-based height
+  (`alt.Step(22)` per category) and the pane drops the hard-coded
+  height, so the chart grows with the number of matches and the
+  x-axis stays visible.
+
+## [0.6.1] - 2026-05-23
+
+### Added
+- `pct_ge_5x` column in the Dashboard "Best-covered references"
+  table.
+- New "Highest mean depth references" Tabulator in the Dashboard,
+  re-sorting the same per-reference frame by `mean_depth`
+  descending. Surfaces short references with very deep coverage
+  that the breadth-based ranking would otherwise hide.
+
+## [0.6.0] - 2026-05-23
+
+### Added
+- **Dashboard landing tab** as the first tab of every per-sample
+  report. Single-viewport summary: 6-tile KPI strip (raw reads,
+  Q30, % host removed, non-host reads, % classified by Kraken
+  viral, classified contigs), three side-by-side top-5 cards
+  (Kraken species, Kaiju taxa, BLAST matches by cumulative bp),
+  per-assembler Assembly summary table and a Best-covered
+  references table. Each card carries a one-line pointer to the
+  relevant detail tab. Implemented in
+  `reporthanter/report/dashboard.py`; exposed as
+  `DashboardSection`.
+- `BlastProcessor.top_matches_by_bp(df, n=5)` helper used by the
+  Dashboard BLAST card.
+
+### Changed
+- `ReportGenerator` instantiates `DashboardSection` and prepends
+  it to `main_tabs`. The existing six tabs (Read statistics,
+  Host alignment, Classification of reads, Assembly statistics,
+  Assembly classification, Alignment coverage) keep their layout
+  and order.
+
 ## [0.4.0] - 2026-05-21
 
 Breaking release that consolidates onto a single canonical

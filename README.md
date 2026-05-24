@@ -14,8 +14,18 @@ the original monolithic `virusHanter` Snakefile.
 
 ## What's in the report
 
-The report follows the pipeline's data-flow order:
+The report opens on a **Dashboard** landing tab and follows the
+pipeline's data-flow order for the deep-dive tabs behind it:
 
+- **Dashboard** (the landing tab) — single-viewport summary.
+  Headline KPI strip (raw reads, Q30 rate, % host removed,
+  non-host reads, % classified by Kraken viral, classified
+  contigs), three side-by-side top-5 cards (Kraken species,
+  Kaiju taxa, BLAST matches by cumulative bp), a per-assembler
+  Assembly summary table, and two coverage tables:
+  *Best-covered references* (sorted by `% >= 10x`) and
+  *Highest mean depth references*. Each card carries a one-line
+  pointer to the relevant detail tab.
 - **Read statistics** — fastp summary (number of reads, length,
   Q20/Q30, duplication rate, GC content).
 - **Host alignment** — KPI tile strip at the top (Total reads /
@@ -31,12 +41,12 @@ The report follows the pipeline's data-flow order:
   "Comparison" sub-tab is pinned first, putting the highlight
   metrics side by side as one column per assembler.
 - **Assembly classification** — one sub-tab per assembler (e.g.
-  `All assemblers`, `MEGAHIT`, `metaSPAdes`) carrying a single
-  BLAST bar chart (cumulative contig length per match, with
-  contig count surfaced as a tooltip and a small label at each
-  bar's right edge) on top of the per-assembler contig table.
-  Optional **geNomad** summary sub-tabs sit next to the BLAST
-  tabs.
+  `All assemblers`, `MEGAHIT`, `metaSPAdes`) carrying two BLAST
+  bar charts (contig count per match and cumulative contig
+  length per match) above the per-assembler contig table. Both
+  charts use step-based height so they grow with the number of
+  matches without clipping the x-axis. Optional **geNomad**
+  summary sub-tabs sit next to the BLAST tabs.
 - **Alignment coverage** — a per-reference summary table sorted
   by `% >= 10x` descending sits at the top, so a reviewer can
   scan every reference in one glance before drilling into a
@@ -45,6 +55,29 @@ The report follows the pipeline's data-flow order:
   depth, bp + % at 1x / 3x / 5x / 10x / 100x). Tab labels
   read `<chrom> — <species> [<sources>]` where `<sources>`
   shows which classifier(s) contributed the reference.
+
+### Species naming
+
+The report uses **ICTV-binomial species names** wherever the
+upstream pipeline supplies them. When `virusHanter2` (>= 0.7.0)
+canonicalises the BLAST, Kraken, Kaiju and `virus_names` outputs
+via the NCBI taxdump's species-rank walk-up, every label in the
+report shows e.g. `Lymphocryptovirus humangamma4` rather than
+`human gammaherpesvirus 4` or `Human herpesvirus 4 type 2`.
+
+An optional **`Also known as`** column accompanies each species
+in the Dashboard top-5 cards and the Coverage summary tables.
+It carries the legacy NCBI scientific name plus every
+non-scientific name registered in `names.dmp` (acronym, common
+name, genbank common name, equivalent name, synonym), so a
+scientist still recognises `EBV`, `Epstein-Barr virus`,
+`HHV-4` or `Human herpesvirus 4` alongside the binomial. The
+column is hidden when the upstream files lack an `aliases`
+column (older pipeline versions).
+
+The raw classifier-reported names and BLAST stitles are kept in
+the on-disk CSVs / TSVs (in `_raw` columns or the `matches`
+field) for audit but are hidden from the rendered HTML.
 ## Requirements
 
 - Python 3.12+

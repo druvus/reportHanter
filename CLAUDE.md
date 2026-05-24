@@ -88,6 +88,9 @@ working:
    `FastpProcessor`, `FlagstatProcessor`, `CoverageProcessor`,
    `QuastProcessor`, `GenomadProcessor`) and matching plot
    generators.
+3. `DashboardSection` (since 0.6.0) — the landing tab class
+   built from the union of processor inputs. Composed by
+   `ReportGenerator` as the first tab of the rendered HTML.
 
 Do not re-introduce the legacy free functions removed in 0.3.0
 (`panel_report`, `wrangle_kraken`, `plot_kraken`, etc.) or the
@@ -111,6 +114,19 @@ surface (retired in 0.4.0).
   but emit deprecation noise; do not introduce new uses.
 - Report and plotting code lives here, not in
   `virusHanter2/scripts/`.
+- Species naming follows whatever the upstream data files
+  provide. The pipeline canonicalises to ICTV-binomial species
+  names (e.g. `Lymphocryptovirus humangamma4`); the report
+  surfaces these verbatim alongside an optional `aliases`
+  column rendered as "Also known as" (legacy NCBI scientific
+  name + acronyms / common names from `names.dmp`). Do not
+  re-introduce name parsing or taxonomy walks in reporthanter —
+  the report consumes pre-canonicalised columns.
+- Hide raw classifier output from the rendered HTML. Drop
+  `*_raw` columns and the BLAST `matches` column at the report
+  boundary (processors / Tabulator views / Vega chart data)
+  even though they stay on disk for audit. A reviewer should
+  see the canonical name, not two names for the same species.
 - Documentation belongs under `docs/`; `README.md` and `CLAUDE.md`
   are the only Markdown files that should remain at the package
   root. Link to `docs/` for anything longer.
