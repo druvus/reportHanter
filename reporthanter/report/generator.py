@@ -297,7 +297,7 @@ class ReportGenerator:
     ) -> None:
         """Save the report to an HTML file."""
         try:
-            title = title or "ReportHanter Report"
+            title = title or "reportHanter"
             report.save(str(output_path), title=title)
             self.logger.info(f"Report saved to: {output_path}")
         except Exception as e:

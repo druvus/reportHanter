@@ -3,6 +3,7 @@ Report sections with improved separation of concerns.
 """
 
 import logging
+from pathlib import Path
 
 import pandas as pd
 import panel as pn
@@ -148,41 +149,6 @@ def _coverage_header_filters(columns: list[str]) -> dict:
         "species": "filter species",
         "aliases": "filter aliases",
         "sources": "filter sources",
-    }
-    for col, placeholder in text_like.items():
-        if col in columns:
-            spec[col] = {"type": "input", "func": "like", "placeholder": placeholder}
-    return spec
-
-
-def _classifier_header_filters(columns: list[str]) -> dict:
-    """Header filters for the Dashboard classification cards
-    (Top-5 Kraken / Kaiju / BLAST tables).
-
-    Numeric ``>=`` on the percent / read / contig / bp columns;
-    substring match on the species / taxon / match / aliases
-    columns. Column names match those produced by the Dashboard
-    cards after their rename pass.
-    """
-    spec: dict[str, dict] = {}
-    numeric_ge = {
-        "% reads": ">= % reads",
-        "Reads": ">= reads",
-        "Contigs": ">= contigs",
-        "Cumulative bp": ">= bp",
-    }
-    for col, placeholder in numeric_ge.items():
-        if col in columns:
-            spec[col] = {
-                "type": "number",
-                "func": ">=",
-                "placeholder": placeholder,
-            }
-    text_like = {
-        "Species": "filter species",
-        "Taxon": "filter taxon",
-        "Match": "filter match",
-        "Also known as": "filter aliases",
     }
     for col, placeholder in text_like.items():
         if col in columns:
@@ -628,7 +594,7 @@ class AssemblySection(_SectionBase):
 
         header = self._create_header(
             """
-            ## Assembly
+            ## Assembly statistics
             Assembly metrics from QUAST, one sub-tab per
             assembler. Numbers refer to the polished contigs the
             assembler produced before BLAST classification or
@@ -765,6 +731,15 @@ class ContigClassificationSection(_SectionBase):
         blast_processor = BlastProcessor(self.config.get_config("blast"))
         blast_plot_generator = BlastPlotGenerator(self.config.get_config("plotting"))
 
+        # Per-assembler BLAST CSVs from virusHanter2's multi-assembler
+        # mode carry an explicit ``assembler`` column. Older / single-
+        # assembler runs do not; try to infer the assembler from the
+        # CSV's path (any segment matching a known assembler name).
+        # When inference fails we leave the column unset rather than
+        # writing "unknown" — ``_table_view`` then suppresses the
+        # column so the contig table is not cluttered with a useless
+        # "unknown" repeated on every row.
+        known_assemblers = {"MEGAHIT", "metaSPAdes", "rnaviralSPAdes", "SPAdes"}
         per_assembler_frames: list[pd.DataFrame] = []
         for path in blastn_files:
             try:
@@ -775,7 +750,12 @@ class ContigClassificationSection(_SectionBase):
             if frame is None or frame.empty:
                 continue
             if "assembler" not in frame.columns:
-                frame = frame.assign(assembler="unknown")
+                inferred = next(
+                    (seg for seg in Path(str(path)).parts if seg in known_assemblers),
+                    None,
+                )
+                if inferred:
+                    frame = frame.assign(assembler=inferred)
             per_assembler_frames.append(frame)
         blast_data = (
             pd.concat(per_assembler_frames, ignore_index=True)
@@ -784,7 +764,15 @@ class ContigClassificationSection(_SectionBase):
         )
 
         def _table_view(frame: pd.DataFrame) -> pd.DataFrame:
-            """Drop bookkeeping columns and pin ``assembler`` first.
+            """Drop bookkeeping columns and pin the identifier columns.
+
+            The BLAST CSV's ``name`` column carries the contig
+            identifier (e.g. ``k57_148_pilon``). Rename to
+            ``seq_name`` so the contig table matches the geNomad
+            sub-tab, which already uses that column name. The
+            ``assembler`` column is dropped when no row carries a
+            value (single-assembler run with no path-derived label),
+            since a column of empty cells adds no information.
 
             Kept as a closure so the assembler-filter callback can
             project the filtered BLAST frame through exactly the same
@@ -801,7 +789,6 @@ class ContigClassificationSection(_SectionBase):
             # so the viewer does not see two different names for the
             # same species.
             columns_to_drop = [
-                "name",
                 "matches",
                 "sample_id",
                 "match_name_raw",
@@ -809,9 +796,13 @@ class ContigClassificationSection(_SectionBase):
             view = frame.drop(
                 columns=[col for col in columns_to_drop if col in frame.columns]
             )
-            if "assembler" in view.columns:
-                cols = ["assembler"] + [c for c in view.columns if c != "assembler"]
-                view = view[cols]
+            if "name" in view.columns:
+                view = view.rename(columns={"name": "seq_name"})
+            if "assembler" in view.columns and view["assembler"].isna().all():
+                view = view.drop(columns=["assembler"])
+            front = [c for c in ("assembler", "seq_name") if c in view.columns]
+            others = [c for c in view.columns if c not in front]
+            view = view[front + others]
             return view
 
         blast_plot = blast_plot_generator.generate_plot(blast_data)
@@ -879,7 +870,7 @@ class ContigClassificationSection(_SectionBase):
 
         header = self._create_header(
             f"""
-            ## Classification of Contigs
+            ## Assembly classification
             Contigs from de novo assembly are classified with
             BLASTN. {counts_line} When geNomad is enabled in the
             pipeline, a per-assembler geNomad summary sub-tab is
@@ -907,6 +898,33 @@ class ContigClassificationSection(_SectionBase):
         #
         # Single-assembler runs keep the original two-tab shape
         # (BLAST chart, contig table).
+        # Map geNomad summary paths to the assembler that produced
+        # them so each per-assembler tab can carry its own nested
+        # geNomad sub-tab. virusHanter2 emits genomad under
+        # ``<sample>/<assembler>/GENOMAD/...``; the assembler name is
+        # the path segment immediately preceding ``GENOMAD``.
+        genomad_by_assembler: dict[str, str | Path] = {}
+        for gpath in genomad_summaries or []:
+            parts = Path(str(gpath)).parts
+            try:
+                idx = next(i for i, seg in enumerate(parts) if seg.upper() == "GENOMAD")
+            except StopIteration:
+                continue
+            if idx >= 1:
+                genomad_by_assembler[parts[idx - 1]] = gpath
+
+        def _genomad_pane(asm_name: str) -> pn.viewable.Viewable | None:
+            gpath = genomad_by_assembler.get(asm_name)
+            if not gpath:
+                return None
+            try:
+                gp = GenomadProcessor(self.config.get_config("genomad"))
+                gdf = gp.process(gpath)
+                return gp.create_summary_table(gdf)
+            except Exception as e:  # noqa: BLE001
+                self.logger.warning(f"Could not render geNomad summary {gpath}: {e}")
+                return None
+
         def _build_assembler_tab(name: str, frame: pd.DataFrame) -> pn.Column:
             # Two separate bar charts so each metric carries its own
             # title and axis. The earlier consolidation overlaid
@@ -935,7 +953,7 @@ class ContigClassificationSection(_SectionBase):
                     },
                 },
             )
-            return pn.Column(
+            blast_block = pn.Column(
                 pn.pane.Markdown(
                     "**Number of contigs per BLAST match**",
                     styles={"margin": "8px 10px 0 10px"},
@@ -953,9 +971,14 @@ class ContigClassificationSection(_SectionBase):
                     sizing_mode="stretch_width",
                 ),
                 sub_table,
-                name=name,
+                name="BLAST",
                 sizing_mode="stretch_width",
             )
+            genomad_pane = _genomad_pane(name)
+            if genomad_pane is not None:
+                inner = pn.Tabs(blast_block, ("geNomad", genomad_pane))
+                return pn.Column(inner, name=name, sizing_mode="stretch_width")
+            return pn.Column(blast_block, name=name, sizing_mode="stretch_width")
 
         if len(present_assemblers) > 1:
             tab_panes: list = [_build_assembler_tab("All assemblers", blast_data)]
@@ -971,18 +994,16 @@ class ContigClassificationSection(_SectionBase):
             )
             tab_panes = [blast_pane, blast_table]
 
-        # Optional geNomad call-tables — one sub-tab per assembler
-        # when virusHanter2 ran geNomad alongside CheckV.
-        if genomad_summaries:
-            for gpath in genomad_summaries:
-                try:
-                    gp = GenomadProcessor(self.config.get_config("genomad"))
-                    gdf = gp.process(gpath)
-                    tab_panes.append(gp.create_summary_table(gdf))
-                except Exception as e:  # noqa: BLE001
-                    self.logger.warning(
-                        f"Could not render geNomad summary {gpath}: {e}"
-                    )
+        # geNomad summaries are nested inside each per-assembler tab
+        # by ``_build_assembler_tab`` above, so the top-level tab strip
+        # stays linear regardless of how many assemblers were run.
+        # In the single-assembler fallback path (BLASTN + table only)
+        # geNomad is appended as a top-level sibling.
+        if not (len(present_assemblers) > 1) and genomad_summaries:
+            for asm in genomad_by_assembler:
+                pane = _genomad_pane(asm)
+                if pane is not None:
+                    tab_panes.append(pane)
 
         tabs = pn.Tabs(*tab_panes)
         return pn.Column(header, tabs)
@@ -1010,7 +1031,15 @@ class CoverageSection(_SectionBase):
         if not mosdepth_regions:
             raise ValueError("mosdepth_regions is required")
 
-        header = self._create_header("## Alignment coverage")
+        header = self._create_header(
+            """
+            ## Alignment coverage
+            Per-reference coverage from mosdepth, one sub-tab per
+            reference, ordered by breadth at >= 10x desc. The
+            companion summary table lists the same references in the
+            same order so row N matches tab N.
+            """
+        )
         tabs = pn.Tabs()
 
         processor = CoverageProcessor(self.config.get_config("coverage"))
@@ -1080,6 +1109,15 @@ class CoverageSection(_SectionBase):
         # reviewer wants to see how much of the reference was
         # deeply oversampled.
         thresholds = [1, 3, 5, 10, 100]
+        filters = self._filters_block(
+            [
+                "Depth thresholds: "
+                + ", ".join(f"{t}x" for t in thresholds),
+                "Reference window size set by virusHanter2 COVERAGE_WINDOW "
+                "(default 100 windows per reference).",
+                "References ordered by % bp >= 10x (descending).",
+            ]
+        )
 
         # Build the summary frame first; its row order (sorted by
         # ``% >= 10x`` descending) drives both the summary
@@ -1101,7 +1139,13 @@ class CoverageSection(_SectionBase):
             species = chrom_to_name.get(str(chrom), "")
             sources = chrom_to_sources.get(str(chrom), "")
             base = f"{chrom} — {species}" if species else str(chrom)
-            label = f"{base} [{sources}]" if sources else base
+            full_label = f"{base} [{sources}]" if sources else base
+            # Keep the left-rail tab strip readable: species names
+            # plus an optional source tag can run to 60+ characters
+            # and wrap onto multiple lines. Cap the on-tab label at
+            # 38 chars; the per-reference statistics table directly
+            # below carries the full label without truncation.
+            label = full_label if len(full_label) <= 38 else full_label[:35] + "..."
 
             # Per-reference statistics table. mosdepth's regions BED
             # carries depth per window of size COVERAGE_WINDOW; we
@@ -1152,4 +1196,4 @@ class CoverageSection(_SectionBase):
             sizing_mode="stretch_width",
         )
 
-        return pn.Column(header, summary_block, pn.layout.Divider(), tabs)
+        return pn.Column(header, filters, summary_block, pn.layout.Divider(), tabs)

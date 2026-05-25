@@ -52,14 +52,8 @@ def _compact_table(
     *,
     name: str,
     formatters: dict | None = None,
-    header_filters: dict | None = None,
 ) -> pn.widgets.Tabulator:
-    """Small, non-paginated Tabulator used for the Dashboard tiles.
-
-    ``header_filters`` (optional) wires per-column filter widgets
-    into the header so a reviewer can narrow the table by typing.
-    All filters operate client-side and survive ``panel.save()``.
-    """
+    """Small, non-paginated Tabulator used for the Dashboard tiles."""
     return pn.widgets.Tabulator(
         frame,
         disabled=True,
@@ -67,7 +61,6 @@ def _compact_table(
         layout="fit_columns",
         pagination=None,
         formatters=formatters or {},
-        header_filters=header_filters or {},
         name=name,
         configuration={"clipboard": True},
     )
@@ -98,7 +91,7 @@ class DashboardSection(ReportSection):
         primary = self.config.get("report.primary_color", "#102D5F")
         accent = self.config.get("report.accent_color", "#13B5A6")
         header = pn.pane.Markdown(
-            f"## Dashboard - {sample_name}",
+            "## Dashboard",
             styles={
                 "color": primary,
                 "padding": "10px 15px 10px 18px",
@@ -166,7 +159,7 @@ class DashboardSection(ReportSection):
                 assemblers.append(parts[-3])
         asm_str = ", ".join(assemblers) if assemblers else "none"
         return pn.pane.Markdown(
-            f"**{sample_name}** - host removal: `{backend}` - assemblers: `{asm_str}`",
+            f"Host removal: `{backend}` - assemblers: `{asm_str}`",
             styles={"margin": "0 10px 6px 10px", "font-size": "13px"},
         )
 
@@ -249,9 +242,15 @@ class DashboardSection(ReportSection):
         kaiju_table: str | Path | None,
         blastn_files: list[str | Path],
     ) -> pn.Row:
+        # Cards may render either a populated table or a single
+        # "no data" line; the height difference would otherwise leave
+        # a ragged row baseline. Pin each card to the same minimum
+        # height so the row stays aligned.
         kraken_card = self._kraken_card(kraken_file)
         kaiju_card = self._kaiju_card(kaiju_table)
         blast_card = self._blast_card(blastn_files)
+        for card in (kraken_card, kaiju_card, blast_card):
+            card.min_height = 220
         return pn.Row(kraken_card, kaiju_card, blast_card, sizing_mode="stretch_width")
 
     def _kraken_card(self, kraken_file: str | Path | None) -> pn.Column:
@@ -269,18 +268,10 @@ class DashboardSection(ReportSection):
             config["max_entries"] = 5
             filt, _ = kp.filter_data(kdata, virus_only=True, **config)
             cols = ["name", "percent", "count_clades"]
-            rename = {
-                "name": "Species",
-                "percent": "% reads",
-                "count_clades": "Reads",
-            }
             if "aliases" in filt.columns:
                 cols.append("aliases")
-                rename["aliases"] = "Also known as"
-            view = (
-                filt[cols]
-                .rename(columns=rename)
-                .assign(**{"% reads": lambda d: (d["% reads"] * 100).round(2)})
+            view = filt[cols].assign(
+                percent=lambda d: (d["percent"] * 100).round(2)
             )
             return pn.Column(
                 caption,
@@ -305,18 +296,10 @@ class DashboardSection(ReportSection):
             config["max_entries"] = 5
             filt, _ = kp.filter_data(kdata, **config)
             cols = ["taxon_name", "percent", "reads"]
-            rename = {
-                "taxon_name": "Taxon",
-                "percent": "% reads",
-                "reads": "Reads",
-            }
             if "aliases" in filt.columns:
                 cols.append("aliases")
-                rename["aliases"] = "Also known as"
-            view = (
-                filt[cols]
-                .rename(columns=rename)
-                .assign(**{"% reads": lambda d: (d["% reads"] * 100).round(2)})
+            view = filt[cols].assign(
+                percent=lambda d: (d["percent"] * 100).round(2)
             )
             return pn.Column(
                 caption,
@@ -348,17 +331,9 @@ class DashboardSection(ReportSection):
         top = bp.top_matches_by_bp(merged, n=5)
         if top.empty:
             return pn.Column(caption, pn.pane.Markdown("*No classified contigs.*"))
-        view = top.rename(
-            columns={
-                "match_name": "Match",
-                "contigs": "Contigs",
-                "cumulative_bp": "Cumulative bp",
-                "aliases": "Also known as",
-            }
-        )
         return pn.Column(
             caption,
-            _compact_table(view, name="Top BLAST matches"),
+            _compact_table(top, name="Top BLAST matches"),
             sizing_mode="stretch_width",
         )
 
@@ -471,9 +446,19 @@ class DashboardSection(ReportSection):
         )
 
         return pn.Column(
+            pn.pane.Markdown(
+                "*Top 5 references by breadth (% bp >= 10x).*",
+                styles={"margin": "0 10px 4px 10px", "font-size": "12px"},
+            ),
             best_covered_table,
             pn.pane.Markdown(
                 "### Highest mean depth references", styles={"margin": "10px 10px 0 10px"}
+            ),
+            pn.pane.Markdown(
+                "*Same references re-ranked by mean depth - a short, "
+                "deeply-covered reference can rank highly here while a "
+                "longer one wins on breadth above.*",
+                styles={"margin": "0 10px 4px 10px", "font-size": "12px"},
             ),
             top_depth_table,
             sizing_mode="stretch_width",
