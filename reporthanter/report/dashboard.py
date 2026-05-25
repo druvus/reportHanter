@@ -24,6 +24,8 @@ from ..processors.kaiju_processor import KaijuProcessor
 from ..processors.kraken_processor import KrakenProcessor
 from ..processors.quast_processor import QuastProcessor
 from .sections import (
+    _classifier_header_filters,
+    _coverage_header_filters,
     _coverage_summary_frame,
     _ncbi_nuccore_link_formatter,
 )
@@ -52,8 +54,14 @@ def _compact_table(
     *,
     name: str,
     formatters: dict | None = None,
+    header_filters: dict | None = None,
 ) -> pn.widgets.Tabulator:
-    """Small, non-paginated Tabulator used for the Dashboard tiles."""
+    """Small, non-paginated Tabulator used for the Dashboard tiles.
+
+    ``header_filters`` (optional) wires per-column filter widgets
+    into the header so a reviewer can narrow the table by typing.
+    All filters operate client-side and survive ``panel.save()``.
+    """
     return pn.widgets.Tabulator(
         frame,
         disabled=True,
@@ -61,6 +69,7 @@ def _compact_table(
         layout="fit_columns",
         pagination=None,
         formatters=formatters or {},
+        header_filters=header_filters or {},
         name=name,
         configuration={"clipboard": True},
     )
@@ -277,7 +286,11 @@ class DashboardSection(ReportSection):
             )
             return pn.Column(
                 caption,
-                _compact_table(view, name="Top Kraken species"),
+                _compact_table(
+                    view,
+                    name="Top Kraken species",
+                    header_filters=_classifier_header_filters(list(view.columns)),
+                ),
                 sizing_mode="stretch_width",
             )
         except Exception as exc:  # noqa: BLE001
@@ -313,7 +326,11 @@ class DashboardSection(ReportSection):
             )
             return pn.Column(
                 caption,
-                _compact_table(view, name="Top Kaiju taxa"),
+                _compact_table(
+                    view,
+                    name="Top Kaiju taxa",
+                    header_filters=_classifier_header_filters(list(view.columns)),
+                ),
                 sizing_mode="stretch_width",
             )
         except Exception as exc:  # noqa: BLE001
@@ -351,7 +368,11 @@ class DashboardSection(ReportSection):
         )
         return pn.Column(
             caption,
-            _compact_table(view, name="Top BLAST matches"),
+            _compact_table(
+                view,
+                name="Top BLAST matches",
+                header_filters=_classifier_header_filters(list(view.columns)),
+            ),
             sizing_mode="stretch_width",
         )
 
@@ -447,7 +468,10 @@ class DashboardSection(ReportSection):
 
         best_covered = summary.head(5)[cols].copy()
         best_covered_table = _compact_table(
-            best_covered, name="Best-covered references", formatters=formatters
+            best_covered,
+            name="Best-covered references",
+            formatters=formatters,
+            header_filters=_coverage_header_filters(list(best_covered.columns)),
         )
 
         # Same per-reference frame, re-sorted by mean depth. The two
@@ -460,7 +484,10 @@ class DashboardSection(ReportSection):
             .copy()
         )
         top_depth_table = _compact_table(
-            top_depth, name="Highest mean depth references", formatters=formatters
+            top_depth,
+            name="Highest mean depth references",
+            formatters=formatters,
+            header_filters=_coverage_header_filters(list(top_depth.columns)),
         )
 
         return pn.Column(

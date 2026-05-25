@@ -121,6 +121,75 @@ def _coverage_summary_frame(
     )
 
 
+def _coverage_header_filters(columns: list[str]) -> dict:
+    """Tabulator per-column header filters for the Coverage tables.
+
+    Same client-side semantics as ``_blast_header_filters``: numeric
+    columns get a ``>=`` filter, text columns get case-insensitive
+    substring match (``like``). Skipping columns absent from the
+    rendered view keeps older virusHanter2 outputs working.
+    """
+    spec: dict[str, dict] = {}
+    numeric_ge = {
+        "length": ">= length (bp)",
+        "mean_depth": ">= mean depth",
+        "pct_ge_5x": ">= % >= 5x",
+        "pct_ge_10x": ">= % >= 10x",
+    }
+    for col, placeholder in numeric_ge.items():
+        if col in columns:
+            spec[col] = {
+                "type": "number",
+                "func": ">=",
+                "placeholder": placeholder,
+            }
+    text_like = {
+        "chrom": "filter accession",
+        "species": "filter species",
+        "aliases": "filter aliases",
+        "sources": "filter sources",
+    }
+    for col, placeholder in text_like.items():
+        if col in columns:
+            spec[col] = {"type": "input", "func": "like", "placeholder": placeholder}
+    return spec
+
+
+def _classifier_header_filters(columns: list[str]) -> dict:
+    """Header filters for the Dashboard classification cards
+    (Top-5 Kraken / Kaiju / BLAST tables).
+
+    Numeric ``>=`` on the percent / read / contig / bp columns;
+    substring match on the species / taxon / match / aliases
+    columns. Column names match those produced by the Dashboard
+    cards after their rename pass.
+    """
+    spec: dict[str, dict] = {}
+    numeric_ge = {
+        "% reads": ">= % reads",
+        "Reads": ">= reads",
+        "Contigs": ">= contigs",
+        "Cumulative bp": ">= bp",
+    }
+    for col, placeholder in numeric_ge.items():
+        if col in columns:
+            spec[col] = {
+                "type": "number",
+                "func": ">=",
+                "placeholder": placeholder,
+            }
+    text_like = {
+        "Species": "filter species",
+        "Taxon": "filter taxon",
+        "Match": "filter match",
+        "Also known as": "filter aliases",
+    }
+    for col, placeholder in text_like.items():
+        if col in columns:
+            spec[col] = {"type": "input", "func": "like", "placeholder": placeholder}
+    return spec
+
+
 def _blast_header_filters(columns: list[str]) -> dict:
     """Tabulator per-column header filters for the BLAST contig table.
 
@@ -219,6 +288,7 @@ def _coverage_summary_table(
         pagination="local",
         page_size=15,
         formatters=formatters,
+        header_filters=_coverage_header_filters(list(summary_df.columns)),
         configuration={
             "clipboard": True,
             "clipboardCopyRowRange": "active",
