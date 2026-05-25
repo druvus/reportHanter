@@ -121,6 +121,60 @@ def _coverage_summary_frame(
     )
 
 
+def _blast_header_filters(columns: list[str]) -> dict:
+    """Tabulator per-column header filters for the BLAST contig table.
+
+    Tabulator renders the filter widgets inside each column header
+    and applies them client-side, so the controls survive
+    ``panel.save()`` without needing a live Python kernel. Numeric
+    columns use a ``>=`` filter (type the threshold; rows below it
+    disappear); text columns use ``like`` for substring match; the
+    ``assembler`` column uses a select-list filter when more than
+    one assembler is present.
+
+    Only columns that are actually in the rendered view get a
+    filter; unknown columns are silently skipped so the helper
+    works on legacy BLAST CSVs that lack the modern column set.
+    """
+    spec: dict[str, dict] = {}
+    # >= filters on the numeric columns scientists routinely
+    # threshold on.
+    numeric_ge = {
+        "percent_identity": ">= % identity",
+        "read_len": ">= contig length (bp)",
+        "sequence_len": ">= subject length",
+        "total_genes": ">= total genes",
+        "viral_genes": ">= viral genes",
+        "host_genes": ">= host genes",
+    }
+    for col, placeholder in numeric_ge.items():
+        if col in columns:
+            spec[col] = {
+                "type": "number",
+                "func": ">=",
+                "placeholder": placeholder,
+            }
+    # Substring match on free-text columns. ``like`` is Tabulator's
+    # case-insensitive contains operator.
+    text_like = {
+        "match_name": "filter species",
+        "aliases": "filter aliases",
+        "accession": "filter accession",
+    }
+    for col, placeholder in text_like.items():
+        if col in columns:
+            spec[col] = {"type": "input", "func": "like", "placeholder": placeholder}
+    # Exact-match on the assembler tag (one of MEGAHIT / metaSPAdes /
+    # rnaviralSPAdes). Use a plain input so a reviewer can type
+    # ``MEGAHIT`` to isolate one assembler.
+    if "assembler" in columns:
+        spec["assembler"] = {"type": "input", "func": "like", "placeholder": "filter assembler"}
+    # Boolean-ish provirus flag from CheckV.
+    if "provirus" in columns:
+        spec["provirus"] = {"type": "input", "func": "like", "placeholder": "Yes / No"}
+    return spec
+
+
 def _ncbi_nuccore_link_formatter() -> dict:
     """Tabulator link-formatter spec that turns a cell's value
     into ``https://www.ncbi.nlm.nih.gov/nuccore/<value>`` and
@@ -717,6 +771,7 @@ class ContigClassificationSection(_SectionBase):
         blast_table = pn.widgets.Tabulator(
             table_data,
             formatters=formatters,
+            header_filters=_blast_header_filters(list(table_data.columns)),
             layout="fit_columns",
             pagination="local",
             page_size=15,
@@ -771,8 +826,13 @@ class ContigClassificationSection(_SectionBase):
             Contigs from de novo assembly are classified with
             BLASTN. {counts_line} When geNomad is enabled in the
             pipeline, a per-assembler geNomad summary sub-tab is
-            added. Select rows and press Ctrl/Cmd-C to copy, or
-            use the download button below to export the full
+            added. Each column header carries a filter widget:
+            type a number into ``percent_identity`` or ``read_len``
+            to keep only rows above that threshold, or a substring
+            into ``match_name`` / ``aliases`` to narrow to a
+            species. Filters compose; clear a box to drop the
+            constraint. Select rows and press Ctrl/Cmd-C to copy,
+            or use the download button below to export the full
             table as CSV.
             """
         )
@@ -800,9 +860,11 @@ class ContigClassificationSection(_SectionBase):
             # one chart per question.
             count_plot = blast_plot_generator.generate_plot(frame)
             bp_plot = blast_plot_generator.create_bp_chart(frame)
+            sub_table_view = _table_view(frame)
             sub_table = pn.widgets.Tabulator(
-                _table_view(frame),
+                sub_table_view,
                 formatters=formatters,
+                header_filters=_blast_header_filters(list(sub_table_view.columns)),
                 layout="fit_columns",
                 pagination="local",
                 page_size=15,
