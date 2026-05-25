@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/reporthanter_logo.png" alt="reportHanter" width="640">
+</p>
+
 # reportHanter
 
 `reportHanter` renders an interactive HTML report from the
