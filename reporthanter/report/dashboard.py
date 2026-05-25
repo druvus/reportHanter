@@ -24,8 +24,6 @@ from ..processors.kaiju_processor import KaijuProcessor
 from ..processors.kraken_processor import KrakenProcessor
 from ..processors.quast_processor import QuastProcessor
 from .sections import (
-    _classifier_header_filters,
-    _coverage_header_filters,
     _coverage_summary_frame,
     _ncbi_nuccore_link_formatter,
 )
@@ -286,11 +284,7 @@ class DashboardSection(ReportSection):
             )
             return pn.Column(
                 caption,
-                _compact_table(
-                    view,
-                    name="Top Kraken species",
-                    header_filters=_classifier_header_filters(list(view.columns)),
-                ),
+                _compact_table(view, name="Top Kraken species"),
                 sizing_mode="stretch_width",
             )
         except Exception as exc:  # noqa: BLE001
@@ -326,11 +320,7 @@ class DashboardSection(ReportSection):
             )
             return pn.Column(
                 caption,
-                _compact_table(
-                    view,
-                    name="Top Kaiju taxa",
-                    header_filters=_classifier_header_filters(list(view.columns)),
-                ),
+                _compact_table(view, name="Top Kaiju taxa"),
                 sizing_mode="stretch_width",
             )
         except Exception as exc:  # noqa: BLE001
@@ -368,11 +358,7 @@ class DashboardSection(ReportSection):
         )
         return pn.Column(
             caption,
-            _compact_table(
-                view,
-                name="Top BLAST matches",
-                header_filters=_classifier_header_filters(list(view.columns)),
-            ),
+            _compact_table(view, name="Top BLAST matches"),
             sizing_mode="stretch_width",
         )
 
@@ -468,10 +454,7 @@ class DashboardSection(ReportSection):
 
         best_covered = summary.head(5)[cols].copy()
         best_covered_table = _compact_table(
-            best_covered,
-            name="Best-covered references",
-            formatters=formatters,
-            header_filters=_coverage_header_filters(list(best_covered.columns)),
+            best_covered, name="Best-covered references", formatters=formatters
         )
 
         # Same per-reference frame, re-sorted by mean depth. The two
@@ -484,10 +467,7 @@ class DashboardSection(ReportSection):
             .copy()
         )
         top_depth_table = _compact_table(
-            top_depth,
-            name="Highest mean depth references",
-            formatters=formatters,
-            header_filters=_coverage_header_filters(list(top_depth.columns)),
+            top_depth, name="Highest mean depth references", formatters=formatters
         )
 
         return pn.Column(
