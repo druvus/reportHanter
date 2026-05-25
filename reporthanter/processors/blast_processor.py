@@ -159,6 +159,21 @@ class BlastProcessor(BaseDataProcessor):
 class BlastPlotGenerator(BasePlotGenerator):
     """Generates Altair charts for BLAST results."""
 
+    def _apply_styling(self, chart: alt.Chart) -> alt.Chart:
+        """Keep the chart's own step-based height.
+
+        The base class's ``_apply_styling`` stamps every chart with
+        ``height=400`` from the default plotting config, which
+        overrides the ``alt.Step(22)`` per-bar height set in
+        ``_create_chart`` / ``create_bp_chart``. The two BLAST
+        charts then render at wildly different heights when only
+        ``_create_chart`` goes through ``generate_plot`` (and so
+        through ``_apply_styling``) while ``create_bp_chart`` is
+        called directly. Preserve the step-based height so the two
+        charts grow in lockstep with the number of BLAST matches.
+        """
+        return chart.resolve_scale(color="independent")
+
     DESCRIPTION = (
         "Bar chart summarising BLASTN classification of de novo contigs. "
         "The horizontal axis shows the number of contigs assigned to each "

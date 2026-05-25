@@ -974,10 +974,11 @@ class ContigClassificationSection(_SectionBase):
             ## Assembly classification
             Contigs from de novo assembly are classified with
             BLASTN. {counts_line} When geNomad is enabled in the
-            pipeline, a per-assembler geNomad summary sub-tab is
-            added. Each column header carries a filter widget:
-            type a number into ``percent_identity`` or ``read_len``
-            to keep only rows above that threshold, or a substring
+            pipeline, a per-assembler geNomad section is appended
+            beneath the BLAST charts and table. Each column header
+            on the contig table carries a filter widget: type a
+            number into ``percent_identity`` or ``read_len`` to
+            keep only rows above that threshold, or a substring
             into ``match_name`` / ``aliases`` to narrow to a
             species. Filters compose; clear a box to drop the
             constraint. Select rows and press Ctrl/Cmd-C to copy
@@ -1054,7 +1055,7 @@ class ContigClassificationSection(_SectionBase):
                     },
                 },
             )
-            blast_block = pn.Column(
+            parts: list = [
                 pn.pane.Markdown(
                     "**Number of contigs per BLAST match**",
                     styles={"margin": "8px 10px 0 10px"},
@@ -1071,15 +1072,41 @@ class ContigClassificationSection(_SectionBase):
                     bp_plot,
                     sizing_mode="stretch_width",
                 ),
+                pn.pane.Markdown(
+                    "**BLAST contig annotation table** - one row per "
+                    "contig with its BLAST match, percent identity, "
+                    "contig length and accession. Column headers carry "
+                    "filter widgets; select rows and press Ctrl/Cmd-C "
+                    "to copy the visible rows to the clipboard.",
+                    styles={"margin": "14px 10px 0 10px"},
+                ),
                 sub_table,
-                name="BLAST",
-                sizing_mode="stretch_width",
-            )
+            ]
             genomad_pane = _genomad_pane(name)
             if genomad_pane is not None:
-                inner = pn.Tabs(blast_block, ("geNomad", genomad_pane))
-                return pn.Column(inner, name=name, sizing_mode="stretch_width")
-            return pn.Column(blast_block, name=name, sizing_mode="stretch_width")
+                # Flatten geNomad into the same column under its own
+                # header rather than as a nested sub-tab, so the
+                # reviewer can scan BLAST then geNomad without
+                # switching tabs inside an assembler tab.
+                parts.extend(
+                    [
+                        pn.layout.Divider(),
+                        pn.pane.Markdown(
+                            "### geNomad viral-contig calls",
+                            styles={"margin": "12px 10px 0 10px"},
+                        ),
+                        pn.pane.Markdown(
+                            "*One row per contig geNomad called viral, "
+                            "sorted by ``virus_score`` descending. "
+                            "Complements BLAST: a contig can be called "
+                            "viral by geNomad without a BLAST match if "
+                            "no close reference is in the BLAST DB.*",
+                            styles={"margin": "0 10px 4px 10px", "font-size": "12px"},
+                        ),
+                        genomad_pane,
+                    ]
+                )
+            return pn.Column(*parts, name=name, sizing_mode="stretch_width")
 
         if len(present_assemblers) > 1:
             tab_panes: list = [_build_assembler_tab("All assemblers", blast_data)]
