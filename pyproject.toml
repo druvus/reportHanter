@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reporthanter"
-version = "0.7.0"
+version = "0.8.0"
 description = "An interactive HTML report generator for sequence classification analyses."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -51,6 +51,11 @@ reporthanter = "reporthanter.panel_report_cli:main"
 [tool.setuptools.packages.find]
 include = ["reporthanter*"]
 exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+# Ship the wordmark / icon set inside the package so the rendered
+# HTML can embed them as data URIs (no external network fetch).
+reporthanter = ["assets/*.png", "assets/*.svg"]
 
 [tool.ruff]
 line-length = 100

@@ -2,7 +2,9 @@
 Main report generator using MVC pattern with improved architecture.
 """
 
+import base64
 import logging
+from importlib import resources
 from pathlib import Path
 
 import altair as alt
@@ -221,22 +223,73 @@ class ReportGenerator:
             self.logger.error(f"Section '{section_name}' failed to build: {e}")
             raise ReportGenerationError(f"Section '{section_name}' failed to build: {e}") from e
 
-    def _create_main_header(self, sample_name: str) -> pn.pane.Markdown:
-        """Create the main report header."""
-        return pn.pane.Markdown(
+    def _logo_data_uri(self) -> str:
+        """Return the bundled reportHanter wordmark as a base64 data
+        URI, or an empty string when the asset cannot be loaded.
+
+        The PNG is shipped inside the ``reporthanter.assets`` package
+        (declared in ``pyproject.toml`` ``package-data``) and embedded
+        directly into the rendered HTML so the saved report has no
+        external network dependency.
+        """
+        try:
+            with (
+                resources.files("reporthanter.assets")
+                .joinpath("reporthanter_logo.png")
+                .open("rb")
+            ) as fh:
+                data = base64.b64encode(fh.read()).decode("ascii")
+            return f"data:image/png;base64,{data}"
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"Could not load reportHanter logo: {exc}")
+            return ""
+
+    def _create_main_header(self, sample_name: str) -> pn.pane.HTML:
+        """Render the top-of-report banner.
+
+        White background, navy + teal brand palette, the
+        reportHanter wordmark on the left and the sample name set
+        large on the right. The ``ReportHanter Report`` title text
+        is dropped because the wordmark already carries it; the
+        sample name is now the only piece of information the
+        reviewer needs to see at a glance.
+        """
+        primary = self.config.get("report.primary_color", "#102D5F")
+        accent = self.config.get("report.accent_color", "#13B5A6")
+        background = self.config.get("report.header_bg_color", "#ffffff")
+        logo_uri = self._logo_data_uri()
+        if logo_uri:
+            logo_html = (
+                f'<img src="{logo_uri}" alt="reportHanter" '
+                'style="height:64px;display:block">'
+            )
+        else:
+            logo_html = (
+                f'<span style="font-size:22px;color:{primary};'
+                f'font-weight:700;letter-spacing:0.02em">reportHanter</span>'
+            )
+        return pn.pane.HTML(
             f"""
-            # ReportHanter Report
-            ## Report of {sample_name}
+            <div style="display:flex;align-items:center;
+                        justify-content:space-between;
+                        padding:18px 28px;background:{background};
+                        border-bottom:3px solid {accent};
+                        margin:10px;border-radius:4px;
+                        box-shadow:0 1px 2px rgba(0,0,0,0.04)">
+              <div>{logo_html}</div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:#5a6478;
+                            letter-spacing:0.10em;
+                            text-transform:uppercase;
+                            margin-bottom:4px">Sample</div>
+                <div style="font-size:26px;color:{primary};
+                            font-weight:700;line-height:1.1">
+                  {sample_name}
+                </div>
+              </div>
+            </div>
             """,
-            styles={
-                "color": "white",
-                "padding": "10px",
-                "text-align": "center",
-                "font-size": "20px",
-                "background": self.config.get("report.header_bg_color", "#011a01"),
-                "margin": "10px",
-                "height": "185px",
-            },
+            sizing_mode="stretch_width",
         )
 
     def save_report(

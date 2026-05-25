@@ -29,7 +29,7 @@ from .sections import (
 )
 
 
-def _tile(label: str, value: str, accent: str = "#067a48") -> pn.pane.Markdown:
+def _tile(label: str, value: str, accent: str = "#102D5F") -> pn.pane.Markdown:
     """One KPI tile, matching the style of ``_host_kpi_strip``."""
     return pn.pane.Markdown(
         f"<div style='font-size:11px;color:#666;"
@@ -88,14 +88,19 @@ class DashboardSection(ReportSection):
         mosdepth_regions = kwargs.get("mosdepth_regions")
         virus_names = kwargs.get("virus_names")
 
+        primary = self.config.get("report.primary_color", "#102D5F")
+        accent = self.config.get("report.accent_color", "#13B5A6")
         header = pn.pane.Markdown(
             f"## Dashboard - {sample_name}",
             styles={
-                "color": "white",
-                "padding": "10px 15px",
+                "color": primary,
+                "padding": "10px 15px 10px 18px",
                 "font-size": "16px",
-                "background": self.config.get("report.header_color", "#04c273"),
+                "background": "#ffffff",
+                "border-left": f"4px solid {accent}",
                 "margin": "10px",
+                "border-radius": "4px",
+                "box-shadow": "0 1px 2px rgba(0,0,0,0.04)",
             },
         )
 
@@ -223,8 +228,8 @@ class DashboardSection(ReportSection):
             _tile("Q30 rate", q30),
             _tile("% host removed", pct_host),
             _tile("Non-host reads", non_host),
-            _tile("Reads classified (Kraken viral)", kraken_pct, accent="#04c273"),
-            _tile("Classified contigs", f"{contig_total:,}", accent="#04c273"),
+            _tile("Reads classified (Kraken viral)", kraken_pct, accent="#13B5A6"),
+            _tile("Classified contigs", f"{contig_total:,}", accent="#13B5A6"),
             sizing_mode="stretch_width",
         )
 

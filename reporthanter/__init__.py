@@ -23,7 +23,7 @@ from .processors.quast_processor import QuastProcessor
 from .report.dashboard import DashboardSection
 from .report.generator import ReportGenerator
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 __all__ = [
     "BlastPlotGenerator",

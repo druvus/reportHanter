@@ -35,12 +35,17 @@ class DefaultConfig(ConfigProvider):
         "report": {
             "template": "fast",
             "theme": "modern",
-            # Darker than the previous #04c273 so that the white header
-            # text clears WCAG AA contrast on the green band (5.41:1 vs
-            # 2.34:1 previously). Override in config to restore the
-            # brighter mint if needed.
-            "header_color": "#067a48",
-            "header_bg_color": "#011a01",
+            # Brand palette taken from the reportHanter wordmark:
+            # navy (#102D5F) for primary text + accents, teal
+            # (#13B5A6) for secondary highlights. Section banners are
+            # white with a teal left rule + navy text so the report
+            # reads as a clean light-themed dashboard rather than the
+            # earlier dark-green bands. Override any of these in a
+            # user config file to recolour the rendered HTML.
+            "primary_color": "#102D5F",
+            "accent_color": "#13B5A6",
+            "header_color": "#102D5F",
+            "header_bg_color": "#ffffff",
         },
         "logging": {
             "level": "INFO",

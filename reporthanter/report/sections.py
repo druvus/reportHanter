@@ -46,7 +46,7 @@ def _host_kpi_strip(
         else "bwa"
     )
 
-    def _tile(label: str, value: str, accent: str = "#067a48") -> pn.Column:
+    def _tile(label: str, value: str, accent: str = "#102D5F") -> pn.Column:
         return pn.Column(
             pn.pane.Markdown(
                 f"<div style='font-size:11px;color:#666;"
@@ -69,7 +69,7 @@ def _host_kpi_strip(
         _tile("Host mapped", f"{mapped:,}"),
         _tile("Non-host reads", f"{unmapped:,}"),
         _tile("% removed", f"{pct_mapped:.1f}%"),
-        _tile("Host-removal tool", backend, accent="#04c273"),
+        _tile("Host-removal tool", backend, accent="#13B5A6"),
         sizing_mode="stretch_width",
     )
 
@@ -239,21 +239,26 @@ class _SectionBase(ReportSection):
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def _create_header(self, text: str) -> pn.pane.Markdown:
-        """Create a styled header for the section.
+        """Render a section banner in the brand palette.
 
-        The pane sizes to its Markdown content; an earlier fixed pixel
-        height clipped multi-line subtitles on the Alignment and Raw
-        Classification sections.
+        White card with navy text and a teal left rule, replacing
+        the earlier dark-green band so the report reads as a clean
+        light-themed dashboard consistent with the new wordmark.
         """
+        primary = self.config.get("report.primary_color", "#102D5F")
+        accent = self.config.get("report.accent_color", "#13B5A6")
         return pn.pane.Markdown(
             text,
             styles={
-                "color": "white",
-                "padding": "10px 15px",
+                "color": primary,
+                "padding": "10px 15px 10px 18px",
                 "text-align": "left",
                 "font-size": "16px",
-                "background": self.config.get("report.header_color", "#04c273"),
+                "background": "#ffffff",
+                "border-left": f"4px solid {accent}",
                 "margin": "10px",
+                "border-radius": "4px",
+                "box-shadow": "0 1px 2px rgba(0,0,0,0.04)",
             },
         )
 
@@ -263,6 +268,7 @@ class _SectionBase(ReportSection):
         Rendered below the section header so the reader knows which
         cutoffs produced the plots without having to rerun the pipeline.
         """
+        accent = self.config.get("report.accent_color", "#13B5A6")
         body = "\n".join(f"- {line}" for line in lines)
         return pn.pane.Markdown(
             f"**Filters applied**\n\n{body}",
@@ -272,7 +278,7 @@ class _SectionBase(ReportSection):
                 "margin": "0 10px 10px 10px",
                 "color": "#333",
                 "background": "#f3f3f3",
-                "border-left": "3px solid #067a48",
+                "border-left": f"3px solid {accent}",
             },
         )
 
