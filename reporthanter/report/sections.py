@@ -21,7 +21,9 @@ from ..processors.quast_processor import QuastProcessor
 
 
 def _host_kpi_strip(
-    flagstat_data: pd.DataFrame, flagstat_file: str
+    flagstat_data: pd.DataFrame,
+    flagstat_file: str,
+    show_backend_tile: bool = True,
 ) -> pn.Row:
     """Render the host-alignment headline numbers as a row of KPI
     tiles.
@@ -30,8 +32,12 @@ def _host_kpi_strip(
     four scalars the panel cares about and infers the host-removal
     backend ("bwa" or "hostile") from the flagstat filename.
     Returns a `pn.Row` of small panes so the strip sits as a
-    single horizontal band above the existing markdown summary
-    and bar chart.
+    single horizontal band above the matching bar chart. The
+    host species is communicated by the section label above the
+    strip, so tile labels stay generic (Total reads / Host
+    mapped / ...). ``show_backend_tile`` adds the host-removal
+    tool tile; suppress it for the secondary strip since the
+    backend is reported once at the primary level.
     """
     lookup = dict(
         zip(flagstat_data["metric"], flagstat_data["value"], strict=False)
@@ -65,14 +71,15 @@ def _host_kpi_strip(
             ),
         )
 
-    return pn.Row(
+    tiles = [
         _tile("Total reads", f"{total:,}"),
         _tile("Host mapped", f"{mapped:,}"),
         _tile("Non-host reads", f"{unmapped:,}"),
         _tile("% removed", f"{pct_mapped:.1f}%"),
-        _tile("Host-removal tool", backend, accent="#13B5A6"),
-        sizing_mode="stretch_width",
-    )
+    ]
+    if show_backend_tile:
+        tiles.append(_tile("Host-removal tool", backend, accent="#13B5A6"))
+    return pn.Row(*tiles, sizing_mode="stretch_width")
 
 
 def _coverage_summary_frame(
@@ -423,44 +430,52 @@ class HostAlignmentSection(_SectionBase):
     def generate_section(self, **kwargs) -> pn.Column:
         flagstat_file = kwargs.get("flagstat_file")
         secondary_flagstat_file = kwargs.get("secondary_flagstat_file")
-        secondary_host = kwargs.get("secondary_host", "Secondary")
+        primary_host = kwargs.get("primary_host") or "Human"
+        secondary_host = kwargs.get("secondary_host") or "Secondary"
         if not flagstat_file:
             raise ValueError("flagstat_file is required")
 
         flagstat_processor = FlagstatProcessor(self.config.get_config("flagstat"))
         flagstat_data = flagstat_processor.process(flagstat_file)
-        human_stats, human_pane = flagstat_processor.create_alignment_stats(
-            flagstat_data, "Human"
+        primary_pane = flagstat_processor.create_alignment_chart(
+            flagstat_data, primary_host
         )
 
-        # KPI tile strip across the top of the panel. Surfaces the
-        # headline numbers (total reads, host mapped, non-host, %
-        # removed) plus the backend label inferred from the
-        # flagstat filename (hostile writes
-        # `hostile_contamination_flagstat.txt`; bwa writes
-        # `human_contamination_flagstat.txt`). The markdown stats
-        # block produced by `create_alignment_stats` is dropped
-        # below because its four headline numbers are now in the
-        # KPI tiles. Only the bar chart visualisation survives.
-        del human_stats
-        kpi_row = _host_kpi_strip(flagstat_data, str(flagstat_file))
+        # KPI tile strip with the headline numbers (total reads,
+        # host mapped, non-host, % removed) plus the backend label
+        # inferred from the flagstat filename (hostile writes
+        # ``hostile_contamination_flagstat.txt``; bwa writes
+        # ``human_contamination_flagstat.txt``). The host species
+        # name is carried in the section label above so the
+        # reviewer can see which reference the numbers describe.
+        primary_kpis = _host_kpi_strip(flagstat_data, str(flagstat_file))
 
-        components = [kpi_row, pn.layout.Divider(), human_pane]
+        components: list = [
+            pn.pane.Markdown(
+                f"**Primary host alignment - {primary_host}**",
+                styles={"margin": "0 10px 4px 10px"},
+            ),
+            primary_kpis,
+            primary_pane,
+        ]
         if secondary_flagstat_file:
             secondary_data = flagstat_processor.process(secondary_flagstat_file)
-            _secondary_stats, secondary_pane = (
-                flagstat_processor.create_alignment_stats(
-                    secondary_data, secondary_host
-                )
+            secondary_pane = flagstat_processor.create_alignment_chart(
+                secondary_data, secondary_host
             )
-            del _secondary_stats  # KPI tiles cover it for the primary; we keep only the bar for the secondary too.
+            secondary_kpis = _host_kpi_strip(
+                secondary_data,
+                str(secondary_flagstat_file),
+                show_backend_tile=False,
+            )
             components.extend(
                 [
                     pn.layout.Divider(),
                     pn.pane.Markdown(
-                        f"**{secondary_host} alignment**",
+                        f"**Secondary host alignment - {secondary_host}**",
                         styles={"margin": "0 10px 4px 10px"},
                     ),
+                    secondary_kpis,
                     secondary_pane,
                 ]
             )

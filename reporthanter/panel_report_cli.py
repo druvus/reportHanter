@@ -91,6 +91,11 @@ def parse_args():
         default=None,
         help="Path to the secondary flagstat file (optional).",
     )
+    parser.add_argument(
+        "--primary_host",
+        default="Human",
+        help="Primary host species name (default: 'Human').",
+    )
     parser.add_argument("--secondary_host", default=None, help="Secondary host name (optional).")
     parser.add_argument(
         "--sample_name",
@@ -152,6 +157,7 @@ def main():
             quast_reports=args.quast_report,
             genomad_summaries=args.genomad_summary,
             secondary_flagstat_file=args.secondary_flagstat_file,
+            primary_host=args.primary_host,
             secondary_host=args.secondary_host,
             sample_name=sample_name,
         )

@@ -80,53 +80,43 @@ class FlagstatProcessor(BaseDataProcessor):
         except (ValueError, IndexError) as e:
             raise DataProcessingError(f"Error parsing flagstat file: {e}") from e
 
-    def create_alignment_stats(
+    def create_alignment_chart(
         self, data: pd.DataFrame, species: str = "Host"
-    ) -> tuple[pn.pane.Markdown, pn.pane.Vega]:
-        """Create alignment statistics markdown and chart."""
-        stats_dict = dict(zip(data["metric"], data["value"], strict=False))
+    ) -> pn.pane.Vega:
+        """Build the normalised stacked bar pane for one flagstat.
 
-        total_reads = stats_dict.get("total_reads", 0)
-        percent_mapped = stats_dict.get("percent_mapped", 0.0)
-        reads_mapped = stats_dict.get("reads_mapped", 0)
-        reads_unmapped = stats_dict.get("reads_unmapped", 0)
-
-        # Create markdown summary
-        stats_md = pn.pane.Markdown(
-            f"""
-            ### Total Number of Reads: 
-            {total_reads:,}
-            ### Reads aligned to {species} Genome: 
-            {reads_mapped:,} ({percent_mapped:.2f}%)
-            ### Reads NOT aligned to {species} Genome:
-            {reads_unmapped:,} ({100 - percent_mapped:.2f}%)
-            """,
-            name=f"{species} Alignment Stats",
-        )
-
-        # Create chart. A normalised stacked bar with two segments
-        # only needs one bar of height; the previous
-        # ``stretch_both`` Vega pane let the chart sprawl vertically
-        # because the surrounding Column has no height cap. Pin a
-        # short fixed height + stretch only width so the bar stays a
-        # single horizontal strip beneath the KPI tile row.
+        The headline counts that used to be rendered as h3 markdown
+        beside this chart are already in the KPI tile strip above the
+        section, so this helper now returns only the chart.
+        """
         plot_generator = FlagstatPlotGenerator()
         chart = plot_generator.generate_plot(
             data, species=species, title=f"Reads aligned to {species}"
         )
 
-        chart_pane = pn.pane.Vega(
+        return pn.pane.Vega(
             chart,
             sizing_mode="stretch_width",
-            height=110,
+            height=70,
             name=f"{species} Alignment Plot",
         )
-
-        return stats_md, chart_pane
 
 
 class FlagstatPlotGenerator(BasePlotGenerator):
     """Generates Altair charts for alignment statistics."""
+
+    def _apply_styling(self, chart: alt.Chart) -> alt.Chart:
+        """Keep the bar at its own ~40 px height.
+
+        The base class's ``_apply_styling`` stamps every chart with
+        ``height=400`` from the default plotting config, which turns
+        a single-row stacked bar into a 400 px tall block of solid
+        colour when one segment dominates (e.g. 99% mapped to a
+        viral reference). The flagstat chart is a one-bar
+        ``stack="normalize"`` visualisation; its height was already
+        set in ``_create_chart`` and should be left alone here.
+        """
+        return chart.resolve_scale(color="independent")
 
     def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
         """Create alignment statistics normalised stacked bar chart.
@@ -155,7 +145,6 @@ class FlagstatPlotGenerator(BasePlotGenerator):
         return (
             alt.Chart(viz_data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
-            .properties(width="container", height=40)
             .encode(
                 x=alt.X(
                     "sum(amount)",
@@ -176,5 +165,5 @@ class FlagstatPlotGenerator(BasePlotGenerator):
                     alt.Tooltip("type:N", title="Type"),
                 ],
             )
-            .properties(height=100)
+            .properties(width="container", height=40)
         )

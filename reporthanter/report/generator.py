@@ -82,6 +82,7 @@ class ReportGenerator:
         blastn_files: list[str | Path] | None = None,
         blastn_file: str | Path | None = None,
         secondary_flagstat_file: str | Path | None = None,
+        primary_host: str = "Human",
         secondary_host: str | None = None,
         sample_name: str | None = None,
         quast_reports: list[str | Path] | None = None,
@@ -139,6 +140,7 @@ class ReportGenerator:
             self.sections["host_alignment"].generate_section,
             flagstat_file=flagstat_file,
             secondary_flagstat_file=secondary_flagstat_file,
+            primary_host=primary_host,
             secondary_host=secondary_host,
         )
 
