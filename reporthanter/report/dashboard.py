@@ -24,6 +24,7 @@ from ..processors.kaiju_processor import KaijuProcessor
 from ..processors.kraken_processor import KrakenProcessor
 from ..processors.quast_processor import QuastProcessor
 from .sections import (
+    _apply_canonical_blast_names,
     _coverage_summary_frame,
     _ncbi_nuccore_link_formatter,
 )
@@ -121,6 +122,7 @@ class DashboardSection(ReportSection):
             kraken_file=kraken_file,
             kaiju_table=kaiju_table,
             blastn_files=blastn_files,
+            virus_names=virus_names,
         )
 
         assembly_summary = self._assembly_summary(quast_reports)
@@ -241,6 +243,7 @@ class DashboardSection(ReportSection):
         kraken_file: str | Path | None,
         kaiju_table: str | Path | None,
         blastn_files: list[str | Path],
+        virus_names: str | Path | None = None,
     ) -> pn.Row:
         # Cards may render either a populated table or a single
         # "no data" line; the height difference would otherwise leave
@@ -248,7 +251,7 @@ class DashboardSection(ReportSection):
         # height so the row stays aligned.
         kraken_card = self._kraken_card(kraken_file)
         kaiju_card = self._kaiju_card(kaiju_table)
-        blast_card = self._blast_card(blastn_files)
+        blast_card = self._blast_card(blastn_files, virus_names=virus_names)
         for card in (kraken_card, kaiju_card, blast_card):
             card.min_height = 220
         return pn.Row(kraken_card, kaiju_card, blast_card, sizing_mode="stretch_width")
@@ -310,7 +313,12 @@ class DashboardSection(ReportSection):
             self.logger.warning(f"Kaiju summary failed: {exc}")
             return pn.Column(caption, pn.pane.Markdown("*Kaiju summary unavailable.*"))
 
-    def _blast_card(self, blastn_files: list[str | Path]) -> pn.Column:
+    def _blast_card(
+        self,
+        blastn_files: list[str | Path],
+        *,
+        virus_names: str | Path | None = None,
+    ) -> pn.Column:
         caption = pn.pane.Markdown(
             "**Top 5 BLAST matches by cumulative bp** - see *Assembly "
             "classification* for the contig-level table.",
@@ -328,6 +336,7 @@ class DashboardSection(ReportSection):
         if not frames:
             return pn.Column(caption, pn.pane.Markdown("*BLAST summary unavailable.*"))
         merged = pd.concat(frames, ignore_index=True)
+        merged = _apply_canonical_blast_names(merged, virus_names, self.logger)
         top = bp.top_matches_by_bp(merged, n=5)
         if top.empty:
             return pn.Column(caption, pn.pane.Markdown("*No classified contigs.*"))

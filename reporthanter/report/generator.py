@@ -165,6 +165,7 @@ class ReportGenerator:
             self.sections["contig_classification"].generate_section,
             blastn_files=blastn_paths,
             genomad_summaries=genomad_paths,
+            virus_names=virus_names,
         )
 
         coverage_section = self._build_section(

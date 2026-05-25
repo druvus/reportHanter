@@ -217,6 +217,84 @@ def _blast_header_filters(columns: list[str]) -> dict:
     return spec
 
 
+def _apply_canonical_blast_names(
+    frame: pd.DataFrame,
+    virus_names: str | Path | None,
+    logger: logging.Logger | None = None,
+) -> pd.DataFrame:
+    """Swap the legacy BLAST match_name for the ICTV-canonical
+    species name carried by the virus_names sidecar.
+
+    BLAST CSVs produced before the upstream canonicalisation rule
+    (or for samples where the canonicaliser had nothing to add)
+    carry the legacy NCBI scientific name in ``match_name`` and
+    no ``aliases`` column. When the ``virus_names`` TSV is
+    supplied, look up each row's ``accession`` against the
+    sidecar's ``chrom`` column (stripped of any version suffix);
+    on a hit, swap in the canonical ``name`` as the new
+    ``match_name`` and prepend the original legacy name to the
+    row's aliases. Rows without a hit are left untouched.
+
+    Shared by the Dashboard top-5 BLAST card and the Assembly
+    classification contig table so both surface the same canonical
+    species names.
+    """
+    if (
+        not virus_names
+        or frame.empty
+        or "accession" not in frame.columns
+        or "match_name" not in frame.columns
+    ):
+        return frame
+    try:
+        sidecar = pd.read_csv(virus_names, sep="\t")
+    except Exception as exc:  # noqa: BLE001
+        if logger is not None:
+            logger.warning(f"Could not read virus-names sidecar {virus_names}: {exc}")
+        return frame
+    if not {"chrom", "name"}.issubset(sidecar.columns):
+        return frame
+    base_chrom = sidecar["chrom"].astype(str).str.split(".").str[0]
+    name_map = dict(zip(base_chrom, sidecar["name"].astype(str), strict=False))
+    alias_map: dict[str, str] = {}
+    if "aliases" in sidecar.columns:
+        alias_map = dict(
+            zip(base_chrom, sidecar["aliases"].fillna("").astype(str), strict=False)
+        )
+    out = frame.copy()
+    out_accession = out["accession"].astype(str).str.split(".").str[0]
+    canonical = out_accession.map(name_map)
+    hit = canonical.notna() & canonical.ne("")
+    if not hit.any():
+        return frame
+    legacy_match = out["match_name"].astype(str)
+    existing_aliases = (
+        out["aliases"].fillna("").astype(str)
+        if "aliases" in out.columns
+        else pd.Series([""] * len(out), index=out.index)
+    )
+    sidecar_aliases = out_accession.map(alias_map).fillna("")
+
+    def _compose(legacy: str, sidecar_a: str, existing: str) -> str:
+        parts: list[str] = []
+        for chunk in (legacy, sidecar_a, existing):
+            for token in chunk.split(";"):
+                token = token.strip()
+                if token and token not in parts:
+                    parts.append(token)
+        return "; ".join(parts)
+
+    out.loc[hit, "match_name"] = canonical[hit]
+    new_aliases = [
+        _compose(legacy, sidecar_a, existing) if h else existing
+        for legacy, sidecar_a, existing, h in zip(
+            legacy_match, sidecar_aliases, existing_aliases, hit, strict=False
+        )
+    ]
+    out["aliases"] = new_aliases
+    return out
+
+
 def _ncbi_nuccore_link_formatter() -> dict:
     """Tabulator link-formatter spec that turns a cell's value
     into ``https://www.ncbi.nlm.nih.gov/nuccore/<value>`` and
@@ -736,6 +814,7 @@ class ContigClassificationSection(_SectionBase):
         genomad_summaries = kwargs.get("genomad_summaries")
         if not genomad_summaries and kwargs.get("genomad_summary"):
             genomad_summaries = [kwargs["genomad_summary"]]
+        virus_names = kwargs.get("virus_names")
 
         if not blastn_files:
             raise ValueError("blastn_files is required")
@@ -776,6 +855,13 @@ class ContigClassificationSection(_SectionBase):
             pd.concat(per_assembler_frames, ignore_index=True)
             if per_assembler_frames
             else pd.DataFrame()
+        )
+        # Swap any legacy NCBI match_name for the ICTV-canonical name
+        # carried by the virus_names sidecar, pushing the legacy name
+        # into the aliases column. Same rule the Dashboard top-5 BLAST
+        # card applies, so both views surface the same species labels.
+        blast_data = _apply_canonical_blast_names(
+            blast_data, virus_names, self.logger
         )
 
         def _table_view(frame: pd.DataFrame) -> pd.DataFrame:
