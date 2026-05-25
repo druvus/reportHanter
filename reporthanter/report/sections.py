@@ -866,19 +866,6 @@ class ContigClassificationSection(_SectionBase):
             ),
         )
 
-        # CSV download button — Tabulator exposes a .download() JS method
-        # we trigger from a Panel button via the widget's API.
-        download_button = pn.widgets.Button(
-            name="Download contig table as CSV",
-            button_type="default",
-            margin=(5, 10),
-        )
-
-        def _download(event):
-            blast_table.download("contig_table.csv")
-
-        download_button.on_click(_download)
-
         # Per-assembler headline counts for the section intro. Helps
         # the reviewer see at a glance whether MEGAHIT and metaSPAdes
         # produced comparable numbers of classified contigs before
@@ -901,9 +888,8 @@ class ContigClassificationSection(_SectionBase):
             to keep only rows above that threshold, or a substring
             into ``match_name`` / ``aliases`` to narrow to a
             species. Filters compose; clear a box to drop the
-            constraint. Select rows and press Ctrl/Cmd-C to copy,
-            or use the download button below to export the full
-            table as CSV.
+            constraint. Select rows and press Ctrl/Cmd-C to copy
+            the visible (filtered) rows to the clipboard.
             """
         )
 
@@ -999,7 +985,7 @@ class ContigClassificationSection(_SectionBase):
                     )
 
         tabs = pn.Tabs(*tab_panes)
-        return pn.Column(header, tabs, download_button)
+        return pn.Column(header, tabs)
 
 
 class CoverageSection(_SectionBase):
