@@ -276,6 +276,13 @@ class DashboardSection(ReportSection):
             view = filt[cols].assign(
                 percent=lambda d: (d["percent"] * 100).round(2)
             )
+            # Drop sub-1% rows: noise hits clutter the landing card.
+            view = view.loc[view["percent"] >= 1.0]
+            if view.empty:
+                return pn.Column(
+                    caption,
+                    pn.pane.Markdown("*No Kraken species at >= 1% of reads.*"),
+                )
             return pn.Column(
                 caption,
                 _compact_table(view, name="Top Kraken species"),
@@ -304,6 +311,13 @@ class DashboardSection(ReportSection):
             view = filt[cols].assign(
                 percent=lambda d: (d["percent"] * 100).round(2)
             )
+            # Drop sub-1% rows: noise hits clutter the landing card.
+            view = view.loc[view["percent"] >= 1.0]
+            if view.empty:
+                return pn.Column(
+                    caption,
+                    pn.pane.Markdown("*No Kaiju taxa at >= 1% of reads.*"),
+                )
             return pn.Column(
                 caption,
                 _compact_table(view, name="Top Kaiju taxa"),
@@ -431,6 +445,18 @@ class DashboardSection(ReportSection):
         )
         if summary.empty:
             return pn.pane.Markdown("*No references aligned.*")
+        # Drop noise rows: references with less than 1% bp at >= 5x
+        # are typically incidental matches (e.g. a handful of reads
+        # hitting a related genome) and add clutter to the Dashboard
+        # landing card. The full per-reference list stays in the
+        # Alignment coverage tab unfiltered.
+        if "pct_ge_5x" in summary.columns:
+            summary = summary.loc[summary["pct_ge_5x"] >= 1.0]
+        if summary.empty:
+            return pn.pane.Markdown(
+                "*No references with >= 1% bp covered at >= 5x.*",
+                styles={"margin": "0 10px"},
+            )
         cols = ["chrom", "species", "aliases", "length", "mean_depth", "pct_ge_5x", "pct_ge_10x"]
         if "aliases" not in summary.columns or summary["aliases"].eq("").all():
             cols = [c for c in cols if c != "aliases"]
