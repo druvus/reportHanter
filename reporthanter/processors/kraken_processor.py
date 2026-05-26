@@ -115,6 +115,18 @@ class KrakenPlotGenerator(BasePlotGenerator):
         "axis title."
     )
 
+    def _apply_styling(self, chart: alt.Chart) -> alt.Chart:
+        """Keep the chart's own step-based height.
+
+        Same rationale as ``BlastPlotGenerator._apply_styling``:
+        the base class's default ``height=400`` would stretch
+        every bar to ~40 px, breaking visual consistency with the
+        narrow 22 px bars used in Host alignment and Assembly
+        classification. ``resolve_scale`` is kept so the colour
+        encoding still works.
+        """
+        return chart.resolve_scale(color="independent")
+
     def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
         """Create Kraken classification bar chart.
 
@@ -125,6 +137,11 @@ class KrakenPlotGenerator(BasePlotGenerator):
         - colour drawn from the categorical ``mixed`` palette in
           ``core.palettes`` so the same hue cycles across the
           Kraken, Kaiju and BLAST sections of the report.
+
+        ``alt.Step(22)`` gives each bar a fixed 22 px height so
+        the styling matches the BLAST and Host alignment charts;
+        the chart's total height then scales with the number of
+        bars rather than being fixed at 400 px.
 
         Exact percentages and read counts are reported in the hover
         tooltip; an earlier iteration with an inline ``mark_text``
@@ -137,6 +154,7 @@ class KrakenPlotGenerator(BasePlotGenerator):
         return (
             alt.Chart(data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
+            .properties(width="container", height=alt.Step(22))
             .encode(
                 alt.X(
                     "percent:Q",

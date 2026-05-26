@@ -644,13 +644,21 @@ class RawClassificationSection(_SectionBase):
             ]
         )
 
+        # ``stretch_width`` (not ``stretch_both``) so the chart's
+        # own ``alt.Step(22)`` per-bar height drives the vertical
+        # extent. Under ``stretch_both`` Panel forced the Vega pane
+        # to fill the tab area's full height (~600 px), which Vega
+        # in turn used to stretch the bars to fit - rendering them
+        # at 60-100 px tall instead of the intended 20 px and
+        # breaking visual consistency with the BLAST and Host
+        # alignment charts.
         kraken_virus_pane = pn.pane.Vega(
-            virus_plot, sizing_mode="stretch_both", name="Kraken Virus Only"
+            virus_plot, sizing_mode="stretch_width", name="Kraken Virus Only"
         )
         kraken_domain_pane = pn.pane.Vega(
-            domain_plot, sizing_mode="stretch_both", name="Kraken All Domains"
+            domain_plot, sizing_mode="stretch_width", name="Kraken All Domains"
         )
-        kaiju_pane = pn.pane.Vega(kaiju_plot, sizing_mode="stretch_both", name="Kaiju")
+        kaiju_pane = pn.pane.Vega(kaiju_plot, sizing_mode="stretch_width", name="Kaiju")
 
         tabs = pn.Tabs(kraken_virus_pane, kraken_domain_pane, kaiju_pane)
 
@@ -1118,7 +1126,7 @@ class ContigClassificationSection(_SectionBase):
                 )
         else:
             blast_pane = pn.pane.Vega(
-                blast_plot, sizing_mode="stretch_both", name="BLASTN"
+                blast_plot, sizing_mode="stretch_width", name="BLASTN"
             )
             tab_panes = [blast_pane, blast_table]
 

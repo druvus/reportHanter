@@ -114,16 +114,23 @@ class KaijuPlotGenerator(BasePlotGenerator):
         "reported in the axis title."
     )
 
+    def _apply_styling(self, chart: alt.Chart) -> alt.Chart:
+        """Keep the chart's own step-based height; see the matching
+        override on ``KrakenPlotGenerator`` for the rationale."""
+        return chart.resolve_scale(color="independent")
+
     def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
         """Create Kaiju classification bar chart.
 
         Mirrors the canonical Kraken bar styling: rounded corners,
         thin white stroke, and the ``mixed`` taxonomy palette from
-        ``core.palettes``. Hover tooltips report the exact taxon
-        name, read count and percentage; a previous iteration drew
-        inline percentage labels via a layered ``mark_text``
-        overlay, but the layered chart did not reconcile cleanly
-        with Panel's ColumnDataSource-backed Vega embed.
+        ``core.palettes``. ``alt.Step(22)`` gives each bar a fixed
+        22 px height to match the BLAST and Host alignment charts.
+        Hover tooltips report the exact taxon name, read count and
+        percentage; a previous iteration drew inline percentage
+        labels via a layered ``mark_text`` overlay, but the layered
+        chart did not reconcile cleanly with Panel's
+        ColumnDataSource-backed Vega embed.
         """
         title = kwargs.get("title", "Kaiju classification")
         unclassified_pct = kwargs.get("unclassified_pct", 0.0)
@@ -131,6 +138,7 @@ class KaijuPlotGenerator(BasePlotGenerator):
         return (
             alt.Chart(data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
+            .properties(width="container", height=alt.Step(22))
             .encode(
                 alt.X(
                     "percent:Q",
