@@ -7,12 +7,9 @@ reporthanter.panel_report_cli`` so the test runs whether or not the
 only test that exercises the CLI wiring + ReportGenerator + every section
 in one shot.
 """
-from pathlib import Path
 import subprocess
 import sys
-
-import pytest
-
+from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

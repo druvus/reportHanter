@@ -1,5 +1,8 @@
 # reporthanter/__init__.py
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
+
 # Core interfaces and configuration
 from .core.config import DefaultConfig
 from .core.exceptions import (
@@ -23,7 +26,14 @@ from .processors.quast_processor import QuastProcessor
 from .report.dashboard import DashboardSection
 from .report.generator import ReportGenerator
 
-__version__ = "0.8.4"
+# Read the version from the installed-package metadata so the
+# string tracks pyproject.toml automatically; falls back to
+# "0.0.0+unknown" for source-only checkouts that have not run
+# `pip install -e .`.
+try:
+    __version__ = _pkg_version("reporthanter")
+except PackageNotFoundError:  # pragma: no cover - defensive
+    __version__ = "0.0.0+unknown"
 
 __all__ = [
     "BlastPlotGenerator",
@@ -60,6 +70,7 @@ def create_report(
     blastn_files=None,
     blastn_file=None,
     secondary_flagstat_file=None,
+    primary_host="Human",
     secondary_host=None,
     sample_name=None,
     quast_reports=None,
@@ -98,6 +109,7 @@ def create_report(
         genomad_summaries=genomad_summaries,
         genomad_summary=genomad_summary,
         secondary_flagstat_file=secondary_flagstat_file,
+        primary_host=primary_host,
         secondary_host=secondary_host,
         sample_name=sample_name,
     )

@@ -1,104 +1,118 @@
-"""
-Tests for the 0.3.0 API to ensure clean architecture works.
-"""
+"""Tests for the 0.3.0 API to ensure clean architecture works."""
+
+from __future__ import annotations
+
+import importlib
+import inspect
+import re
+
 import pytest
-import tempfile
-from pathlib import Path
 
 from reporthanter import (
-    ReportGenerator,
-    DefaultConfig, 
-    create_report,
+    DefaultConfig,
     KrakenProcessor,
-    ReportHanterError
+    ReportGenerator,
+    create_report,
+)
+
+# Legacy modules that were removed in 0.3.0; any successful import
+# means a regression has re-introduced them.
+_LEGACY_MODULES = (
+    "kraken",
+    "kaiju",
+    "blast",
+    "flagstat",
+    "fastp",
+    "file_utils",
+    "fastx",
+    "panel_report",
+)
+
+# Legacy top-level symbols that 0.3.0 removed from the package
+# namespace.
+_LEGACY_TOP_LEVEL = ("panel_report", "plot_kraken", "parse_fastp_json")
+
+# Expected ``create_report`` keyword set; locked here so accidental
+# rename / removal surfaces as a test failure rather than a runtime
+# TypeError far downstream.
+_EXPECTED_CREATE_REPORT_PARAMS = frozenset(
+    {
+        "blastn_files",
+        "blastn_file",
+        "kraken_file",
+        "kaiju_table",
+        "fastp_json",
+        "flagstat_file",
+        "mosdepth_regions",
+        "secondary_flagstat_file",
+        "primary_host",
+        "secondary_host",
+        "sample_name",
+        "quast_reports",
+        "quast_report",
+        "virus_names",
+        "genomad_summaries",
+        "genomad_summary",
+        "config",
+    }
 )
 
 
 class TestNewAPI:
     """Test the new 0.3.0 API."""
-    
+
     def test_main_imports_work(self):
-        """Test that main components can be imported."""
-        # This test just verifies imports work
         assert ReportGenerator is not None
         assert DefaultConfig is not None
         assert create_report is not None
         assert KrakenProcessor is not None
-    
+
     def test_report_generator_creation(self):
-        """Test ReportGenerator can be created."""
         config = DefaultConfig()
         generator = ReportGenerator(config)
         assert generator is not None
         assert generator.config is not None
-    
-    def test_create_report_function_signature(self):
-        """Test create_report has the right signature."""
-        import inspect
-        sig = inspect.signature(create_report)
-        
-        expected_params = {
-            'blastn_files', 'blastn_file',
-            'kraken_file', 'kaiju_table',
-            'fastp_json', 'flagstat_file', 'mosdepth_regions',
-            'secondary_flagstat_file', 'secondary_host',
-            'sample_name',
-            'quast_reports', 'quast_report',
-            'virus_names',
-            'genomad_summaries', 'genomad_summary',
-            'config'
-        }
-        actual_params = set(sig.parameters.keys())
 
-        assert expected_params == actual_params
-    
+    def test_create_report_function_signature(self):
+        sig = inspect.signature(create_report)
+        assert set(sig.parameters.keys()) == _EXPECTED_CREATE_REPORT_PARAMS
+
     def test_processors_can_be_imported_individually(self):
-        """Test that individual processors work."""
         from reporthanter import (
-            KrakenProcessor, KaijuProcessor, 
-            BlastProcessor, FastpProcessor, 
-            FlagstatProcessor
+            BlastProcessor,
+            FastpProcessor,
+            FlagstatProcessor,
+            KaijuProcessor,
+            KrakenProcessor,
         )
-        
-        # Test they can be instantiated
+
         assert KrakenProcessor() is not None
         assert KaijuProcessor() is not None
         assert BlastProcessor() is not None
         assert FastpProcessor() is not None
         assert FlagstatProcessor() is not None
-    
-    def test_legacy_imports_removed(self):
-        """Test that legacy imports are no longer available."""
-        with pytest.raises(ImportError):
-            from reporthanter import panel_report
-        
-        with pytest.raises(ImportError):
-            from reporthanter import plot_kraken
-            
-        with pytest.raises(ImportError):
-            from reporthanter import parse_fastp_json
-    
+
+    @pytest.mark.parametrize("name", _LEGACY_TOP_LEVEL)
+    def test_legacy_top_level_imports_removed(self, name):
+        """Each removed legacy top-level symbol should raise ImportError."""
+        import reporthanter
+
+        assert not hasattr(reporthanter, name)
+
     def test_config_system_works(self):
-        """Test configuration system."""
         config = DefaultConfig()
-        
-        # Test default values
         assert config.get("plotting.width") == "container"
         assert config.get("filtering.kraken.level") == "species"
-        
-        # Test nonexistent keys
         assert config.get("nonexistent.key") is None
         assert config.get("nonexistent.key", "default") == "default"
-    
+
     def test_exceptions_are_available(self):
-        """Test that custom exceptions are available."""
         from reporthanter import (
-            ReportHanterError, DataProcessingError, 
-            FileValidationError, PlotGenerationError,
-            ConfigurationError, ReportGenerationError
+            DataProcessingError,
+            FileValidationError,
+            ReportHanterError,
         )
-        
-        # Test they are proper Exception subclasses
+
         assert issubclass(ReportHanterError, Exception)
         assert issubclass(DataProcessingError, ReportHanterError)
         assert issubclass(FileValidationError, ReportHanterError)
@@ -106,59 +120,53 @@ class TestNewAPI:
 
 class TestBackwardsCompatibility:
     """Test backwards compatibility features."""
-    
+
     def test_create_report_function_exists(self):
-        """Test create_report provides backwards compatibility."""
         from reporthanter import create_report
+
         assert create_report is not None
         assert callable(create_report)
-    
+
     def test_cli_should_still_work(self):
-        """Test CLI functionality is preserved."""
-        # Import the CLI module to ensure it works
-        from reporthanter.panel_report_cli import parse_args, main
+        from reporthanter.panel_report_cli import main, parse_args
+
         assert parse_args is not None
         assert main is not None
 
 
 class TestModuleStructure:
     """Test that the module structure is clean."""
-    
+
     def test_main_package_exports(self):
-        """Test what the main package exports."""
         import reporthanter
-        
-        # Core components should be available
-        assert hasattr(reporthanter, 'ReportGenerator')
-        assert hasattr(reporthanter, 'DefaultConfig')
-        assert hasattr(reporthanter, 'create_report')
-        
-        # Processors should be available
-        assert hasattr(reporthanter, 'KrakenProcessor')
-        assert hasattr(reporthanter, 'KaijuProcessor')
-        
-        # Exceptions should be available
-        assert hasattr(reporthanter, 'ReportHanterError')
-        assert hasattr(reporthanter, 'DataProcessingError')
-        
-        # Version should be available
-        assert hasattr(reporthanter, '__version__')
-        assert reporthanter.__version__ == "0.8.4"
-    
-    def test_legacy_modules_removed(self):
-        """Test that legacy modules are gone."""
+
+        for attr in (
+            "ReportGenerator",
+            "DefaultConfig",
+            "create_report",
+            "KrakenProcessor",
+            "KaijuProcessor",
+            "ReportHanterError",
+            "DataProcessingError",
+            "__version__",
+        ):
+            assert hasattr(reporthanter, attr), f"missing public attr: {attr}"
+
+    def test_version_string_looks_like_semver(self):
+        """``__version__`` is read from the installed package metadata
+        and so tracks ``pyproject.toml`` automatically. Assert it parses
+        as a semver-ish string rather than pinning an exact value (which
+        the previous test did and got 6 releases out of sync)."""
         import reporthanter
-        
-        # These should NOT exist anymore
-        legacy_modules = [
-            'kraken', 'kaiju', 'blast', 'flagstat', 
-            'fastp', 'file_utils', 'fastx', 'panel_report'
-        ]
-        
-        for module_name in legacy_modules:
-            # Try to import the old module - should fail
-            try:
-                __import__(f'reporthanter.{module_name}')
-                pytest.fail(f"Legacy module {module_name} should have been removed")
-            except ImportError:
-                pass  # This is expected
+
+        assert isinstance(reporthanter.__version__, str)
+        assert reporthanter.__version__
+        assert re.match(r"^\d+\.\d+\.\d+", reporthanter.__version__), (
+            f"unexpected version string: {reporthanter.__version__!r}"
+        )
+
+    @pytest.mark.parametrize("module_name", _LEGACY_MODULES)
+    def test_legacy_modules_removed(self, module_name):
+        """Each removed legacy submodule should fail to import."""
+        with pytest.raises(ImportError):
+            importlib.import_module(f"reporthanter.{module_name}")

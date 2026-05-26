@@ -6,7 +6,6 @@ import pytest
 from reporthanter.core.exceptions import DataProcessingError
 from reporthanter.processors.flagstat_processor import FlagstatProcessor
 
-
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
@@ -14,7 +13,7 @@ def test_parse_well_formed_flagstat():
     proc = FlagstatProcessor()
     df = proc.process(str(FIXTURES / "flagstat.txt"))
 
-    lookup = dict(zip(df["metric"], df["value"]))
+    lookup = dict(zip(df["metric"], df["value"], strict=False))
     assert lookup["total_reads"] == 2000
     assert lookup["percent_mapped"] == pytest.approx(72.5)
     assert lookup["reads_mapped"] == 1450
@@ -25,7 +24,7 @@ def test_zero_total_reads_does_not_divide_by_zero():
     proc = FlagstatProcessor()
     df = proc.process(str(FIXTURES / "flagstat_zero.txt"))
 
-    lookup = dict(zip(df["metric"], df["value"]))
+    lookup = dict(zip(df["metric"], df["value"], strict=False))
     assert lookup["total_reads"] == 0
     assert lookup["percent_mapped"] == 0.0
     assert lookup["reads_mapped"] == 0

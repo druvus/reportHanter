@@ -1,12 +1,10 @@
 """Tests for KaijuProcessor."""
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
 from reporthanter.core.exceptions import DataProcessingError
 from reporthanter.processors.kaiju_processor import KaijuProcessor
-
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

@@ -7,7 +7,6 @@ import pytest
 from reporthanter.core.exceptions import DataProcessingError, FileValidationError
 from reporthanter.processors.blast_processor import BlastProcessor
 
-
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
