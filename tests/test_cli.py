@@ -7,6 +7,7 @@ reporthanter.panel_report_cli`` so the test runs whether or not the
 only test that exercises the CLI wiring + ReportGenerator + every section
 in one shot.
 """
+
 import subprocess
 import sys
 from pathlib import Path
@@ -19,15 +20,25 @@ def test_cli_produces_html(tmp_path):
 
     completed = subprocess.run(
         [
-            sys.executable, "-m", "reporthanter.panel_report_cli",
-            "--blastn_file", str(FIXTURES / "blastn.csv"),
-            "--kraken_file", str(FIXTURES / "kraken.tsv"),
-            "--kaiju_table", str(FIXTURES / "kaiju.tsv"),
-            "--fastp_json", str(FIXTURES / "fastp.json"),
-            "--flagstat_file", str(FIXTURES / "flagstat.txt"),
-            "--mosdepth_regions", str(FIXTURES / "mosdepth_regions.bed.gz"),
-            "--output", str(output),
-            "--sample_name", "smoke_test",
+            sys.executable,
+            "-m",
+            "reporthanter.panel_report_cli",
+            "--blastn_file",
+            str(FIXTURES / "blastn.csv"),
+            "--kraken_file",
+            str(FIXTURES / "kraken.tsv"),
+            "--kaiju_table",
+            str(FIXTURES / "kaiju.tsv"),
+            "--fastp_json",
+            str(FIXTURES / "fastp.json"),
+            "--flagstat_file",
+            str(FIXTURES / "flagstat.txt"),
+            "--mosdepth_regions",
+            str(FIXTURES / "mosdepth_regions.bed.gz"),
+            "--output",
+            str(output),
+            "--sample_name",
+            "smoke_test",
         ],
         capture_output=True,
         text=True,

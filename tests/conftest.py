@@ -5,6 +5,7 @@ defaults used by ``test_processors.py`` and the kwargs the
 Dashboard smoke uses so each test file can focus on the assertion
 it actually cares about.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

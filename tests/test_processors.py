@@ -1,6 +1,7 @@
 """
 Tests for data processors.
 """
+
 from __future__ import annotations
 
 import json
@@ -78,6 +79,36 @@ class TestKrakenProcessor:
         assert all(filtered_df["percent"] > 0.03)
         assert all(filtered_df["domain"] == "Viruses")
         assert filtered_df.iloc[0]["name"] == "Virus A"
+
+    def test_filter_data_empty_dataframe_returns_empty_and_zero(self, kraken_processor):
+        """filter_data on an empty DataFrame must not raise IndexError.
+
+        An empty Kraken report is not expected in practice, but the
+        guard must degrade gracefully rather than propagating a raw
+        IndexError from .iloc[0].
+        """
+        empty = pd.DataFrame(
+            columns=["percent", "count_clades", "count", "tax_lvl", "name", "domain"]
+        )
+        filtered_df, unclassified_pct = kraken_processor.filter_data(empty, level="species")
+
+        assert filtered_df.empty
+        assert unclassified_pct == 0.0
+
+    def test_filter_data_no_unclassified_row(self, kraken_processor):
+        """filter_data returns unclassified_pct=0.0 when no 'unclassified' domain is present."""
+        data = pd.DataFrame(
+            {
+                "percent": [0.10, 0.05],
+                "count_clades": [100, 50],
+                "count": [80, 40],
+                "tax_lvl": ["S", "S"],
+                "name": ["Virus A", "Virus B"],
+                "domain": ["Viruses", "Viruses"],
+            }
+        )
+        _, unclassified_pct = kraken_processor.filter_data(data, level="species")
+        assert unclassified_pct == 0.0
 
 
 # ---------------------------------------------------------------------------

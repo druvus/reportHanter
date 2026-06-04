@@ -49,18 +49,40 @@ class BaseDataProcessor(DataProcessor):
 
 
 class BasePlotGenerator(PlotGenerator):
-    """Base implementation for plot generators with common styling."""
+    """Base implementation for plot generators with common styling.
+
+    Subclasses that use ``alt.Step``-based per-bar heights (Kraken, Kaiju,
+    BLAST, Flagstat) should set ``PRESERVE_CHART_HEIGHT = True`` so that
+    ``_apply_styling`` skips the fixed ``height=400`` stamp and lets the
+    chart's own intrinsic height drive the vertical extent.
+    """
 
     # Subclasses set a short, plain description of what the chart shows.
     # Emitted as the Vega-Lite ``description`` property so assistive
     # technology has a textual fallback for the rendered chart.
     DESCRIPTION: str = ""
 
+    # Set to True in subclasses whose charts use alt.Step-based heights.
+    # When True, _apply_styling omits the height stamp so the chart's own
+    # step-based height is preserved.
+    PRESERVE_CHART_HEIGHT: bool = False
+
+    # Panel Vega pane sizing mode.  Use ``"stretch_width"`` (not
+    # ``"stretch_both"``) for all chart panes: ``"stretch_both"`` causes
+    # Panel to force the pane to fill the surrounding container's full
+    # height, which Vega then stretches to fill — turning compact
+    # alt.Step(22) bars into 60–100 px blocks.  ``"stretch_width"`` lets
+    # the chart's own intrinsic height (set by alt.Step or a fixed
+    # ``height=...``) drive the vertical extent while still filling the
+    # available width.  Sections should obtain this value via the
+    # generator attribute rather than hardcoding the string.
+    CHART_SIZING_MODE: str = "stretch_width"
+
     def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def generate_plot(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
+    def generate_plot(self, data: pd.DataFrame, **kwargs: Any) -> alt.Chart:
         """Generate plot with error handling and common styling."""
         try:
             if data.empty:
@@ -77,11 +99,11 @@ class BasePlotGenerator(PlotGenerator):
             self.logger.error(f"Failed to generate plot: {e}")
             raise PlotGenerationError(f"Failed to generate plot: {e}") from e
 
-    def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
+    def _create_chart(self, data: pd.DataFrame, **kwargs: Any) -> alt.Chart:
         """Override this method in subclasses."""
         raise NotImplementedError("Subclasses must implement _create_chart")
 
-    def _empty_chart(self, title: str = "No Data Available", **kwargs) -> alt.Chart:
+    def _empty_chart(self, title: str = "No Data Available", **kwargs: Any) -> alt.Chart:
         """Create a placeholder chart for empty data."""
         return (
             alt.Chart(pd.DataFrame({"message": [title]}))
@@ -95,7 +117,15 @@ class BasePlotGenerator(PlotGenerator):
         )
 
     def _apply_styling(self, chart: alt.Chart) -> alt.Chart:
-        """Apply common styling to charts."""
+        """Apply common styling to charts.
+
+        When ``PRESERVE_CHART_HEIGHT`` is ``True`` on the subclass the
+        ``height`` stamp is omitted so that ``alt.Step``-based per-bar
+        heights set in ``_create_chart`` are not overridden.  The
+        ``resolve_scale`` call is always applied.
+        """
+        if self.PRESERVE_CHART_HEIGHT:
+            return chart.resolve_scale(color="independent")
         return chart.properties(
             width=self.config.get("width", "container"), height=self.config.get("height", 400)
         ).resolve_scale(color="independent")

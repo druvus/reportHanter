@@ -13,10 +13,11 @@ from pathlib import Path
 
 from reporthanter.core.config import DefaultConfig
 from reporthanter.core.exceptions import ConfigurationError, ReportHanterError
+from reporthanter.core.validation import validate_report_inputs
 from reporthanter.report.generator import ReportGenerator
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate a Panel report from analysis files.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -121,7 +122,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     try:
         args = parse_args()
 
@@ -172,86 +173,30 @@ def main():
         sys.exit(1)
 
 
-def validate_inputs(args) -> None:
-    """Validate all input files exist and are readable."""
-    required_files = {
-        "Kraken file": args.kraken_file,
-        "Kaiju table": args.kaiju_table,
-        "FastP JSON": args.fastp_json,
-        "Flagstat file": args.flagstat_file,
-    }
+def validate_inputs(args: argparse.Namespace) -> None:
+    """Validate all input files and the output path.
 
-    optional_files = {}
-    if args.secondary_flagstat_file:
-        optional_files["Secondary flagstat file"] = args.secondary_flagstat_file
+    Delegates file-existence / readability checks to
+    :func:`~reporthanter.core.validation.validate_report_inputs`
+    (shared with the public :func:`create_report` wrapper), then
+    performs the CLI-specific output-directory check.
+    """
+    validate_report_inputs(
+        kraken_file=args.kraken_file,
+        kaiju_table=args.kaiju_table,
+        fastp_json=args.fastp_json,
+        flagstat_file=args.flagstat_file,
+        mosdepth_regions=args.mosdepth_regions,
+        blastn_files=args.blastn_file or [],
+        secondary_flagstat_file=args.secondary_flagstat_file,
+        virus_names=args.virus_names,
+        quast_reports=args.quast_report or [],
+        genomad_summaries=args.genomad_summary or [],
+    )
 
-    # Check required files
-    errors = []
-    for name, path in required_files.items():
-        file_path = Path(path)
-        if not file_path.exists():
-            errors.append(f"{name} does not exist: {path}")
-        elif not file_path.is_file():
-            errors.append(f"{name} is not a file: {path}")
-        elif file_path.stat().st_size == 0:
-            errors.append(f"{name} is empty: {path}")
-
-    # `--blastn_file` is required and may be repeated; validate each entry.
-    blastn_paths = args.blastn_file or []
-    if not blastn_paths:
-        errors.append("At least one --blastn_file is required")
-    for path in blastn_paths:
-        file_path = Path(path)
-        if not file_path.exists():
-            errors.append(f"BLASTN file does not exist: {path}")
-        elif not file_path.is_file():
-            errors.append(f"BLASTN file is not a file: {path}")
-        # Empty BLAST CSVs are tolerated; they tend to mean the assembler
-        # produced no contigs and the report still needs to render.
-
-    # Check optional files
-    for name, path in optional_files.items():
-        file_path = Path(path)
-        if not file_path.exists():
-            errors.append(f"{name} does not exist: {path}")
-        elif not file_path.is_file():
-            errors.append(f"{name} is not a file: {path}")
-
-    regions_path = Path(args.mosdepth_regions)
-    if not regions_path.exists():
-        errors.append(f"Mosdepth regions file does not exist: {args.mosdepth_regions}")
-    elif not regions_path.is_file():
-        errors.append(f"Mosdepth regions path is not a file: {args.mosdepth_regions}")
-    elif regions_path.stat().st_size == 0:
-        errors.append(f"Mosdepth regions file is empty: {args.mosdepth_regions}")
-    if args.virus_names:
-        names_path = Path(args.virus_names)
-        if not names_path.exists():
-            errors.append(f"Virus names TSV does not exist: {args.virus_names}")
-        elif not names_path.is_file():
-            errors.append(f"Virus names path is not a file: {args.virus_names}")
-        elif names_path.stat().st_size == 0:
-            errors.append(f"Virus names TSV is empty: {args.virus_names}")
-    for q in (args.quast_report or []):
-        quast_path = Path(q)
-        if not quast_path.exists():
-            errors.append(f"QUAST report does not exist: {q}")
-        elif not quast_path.is_file():
-            errors.append(f"QUAST report path is not a file: {q}")
-        elif quast_path.stat().st_size == 0:
-            errors.append(f"QUAST report is empty: {q}")
-    for g in (args.genomad_summary or []):
-        gp = Path(g)
-        if not gp.exists():
-            errors.append(f"geNomad summary does not exist: {g}")
-        elif not gp.is_file():
-            errors.append(f"geNomad summary path is not a file: {g}")
-        elif gp.stat().st_size == 0:
-            errors.append(f"geNomad summary is empty: {g}")
-
-    # Check output directory is writable
-    output_path = Path(args.output)
-    output_dir = output_path.parent
+    # Output-path check is CLI-specific: create_report() has no output path.
+    output_dir = Path(args.output).parent
+    errors: list[str] = []
     if not output_dir.exists():
         errors.append(f"Output directory does not exist: {output_dir}")
     elif not output_dir.is_dir():
@@ -260,7 +205,7 @@ def validate_inputs(args) -> None:
     if errors:
         for error in errors:
             logging.error(error)
-        raise ConfigurationError(f"Input validation failed with {len(errors)} errors")
+        raise ConfigurationError(f"Output path validation failed with {len(errors)} error(s)")
 
 
 def setup_logging(log_level: str, config: DefaultConfig | None = None) -> None:

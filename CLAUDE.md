@@ -48,6 +48,11 @@ make test               # pytest only
 make format             # ruff fix + format
 ```
 
+A `.pre-commit-config.yaml` is provided that mirrors `make all-checks`
+(ruff format + lint, mypy) and runs automatically on `git commit` after
+`pre-commit install` (called by `make install-dev`).  The hooks are
+pinned to the same tool versions used in development.
+
 The CLI is `reporthanter` (defined in `pyproject.toml` as
 `panel_report_cli:main`). Its flag set is part of the public
 contract with `virusHanter2`'s `generate_report` rule and must
@@ -102,9 +107,8 @@ surface (retired in 0.4.0).
 ## Conventions
 
 - Python 3.12+, type-hinted, `ruff` clean (format + lint). Line
-  length 100. Format with `ruff format`. (`mypy strict-ish` is
-  configured in `pyproject.toml` but not part of `make all-checks`
-  yet.)
+  length 100. Format with `ruff format`. `mypy` (strict-ish, configured
+  in `pyproject.toml`) is enforced as part of `make all-checks`.
 - Modest, plain scientific British English in documentation,
   docstrings and comments. No marketing tone, no emoji.
 - Charting via Altair 6 (Vega-Lite). Selections use the v5+ API:

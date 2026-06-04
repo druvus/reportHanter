@@ -4,11 +4,13 @@ Report sections with improved separation of concerns.
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import panel as pn
 
 from ..core.config import DefaultConfig
+from ..core.exceptions import DataProcessingError, FileValidationError
 from ..core.interfaces import ReportSection
 from ..processors.blast_processor import BlastPlotGenerator, BlastProcessor
 from ..processors.coverage_processor import CoveragePlotGenerator, CoverageProcessor
@@ -39,19 +41,13 @@ def _host_kpi_strip(
     tool tile; suppress it for the secondary strip since the
     backend is reported once at the primary level.
     """
-    lookup = dict(
-        zip(flagstat_data["metric"], flagstat_data["value"], strict=False)
-    )
+    lookup = dict(zip(flagstat_data["metric"], flagstat_data["value"], strict=False))
     total = int(lookup.get("total_reads", 0))
     pct_mapped = float(lookup.get("percent_mapped", 0.0))
     mapped = int(lookup.get("reads_mapped", round(total * pct_mapped / 100)))
     unmapped = int(lookup.get("reads_unmapped", total - mapped))
 
-    backend = (
-        "hostile"
-        if "hostile" in flagstat_file.lower()
-        else "bwa"
-    )
+    backend = "hostile" if "hostile" in flagstat_file.lower() else "bwa"
 
     def _tile(label: str, value: str, accent: str = "#102D5F") -> pn.Column:
         return pn.Column(
@@ -248,7 +244,13 @@ def _apply_canonical_blast_names(
         return frame
     try:
         sidecar = pd.read_csv(virus_names, sep="\t")
-    except Exception as exc:  # noqa: BLE001
+    except (
+        OSError,
+        pd.errors.ParserError,
+        ValueError,
+        DataProcessingError,
+        FileValidationError,
+    ) as exc:
         if logger is not None:
             logger.warning(f"Could not read virus-names sidecar {virus_names}: {exc}")
         return frame
@@ -258,9 +260,7 @@ def _apply_canonical_blast_names(
     name_map = dict(zip(base_chrom, sidecar["name"].astype(str), strict=False))
     alias_map: dict[str, str] = {}
     if "aliases" in sidecar.columns:
-        alias_map = dict(
-            zip(base_chrom, sidecar["aliases"].fillna("").astype(str), strict=False)
-        )
+        alias_map = dict(zip(base_chrom, sidecar["aliases"].fillna("").astype(str), strict=False))
     out = frame.copy()
     out_accession = out["accession"].astype(str).str.split(".").str[0]
     canonical = out_accession.map(name_map)
@@ -347,9 +347,7 @@ def _coverage_summary_table(
     )
 
 
-def _coverage_stats_table(
-    sub: pd.DataFrame, thresholds: list[int]
-) -> pn.widgets.Tabulator:
+def _coverage_stats_table(sub: pd.DataFrame, thresholds: list[int]) -> pn.widgets.Tabulator:
     """Per-reference coverage statistics rendered below the trace.
 
     ``sub`` is the slice of the mosdepth regions BED for one
@@ -471,7 +469,7 @@ class ReadStatisticsSection(_SectionBase):
     def section_name(self) -> str:
         return "Read statistics"
 
-    def generate_section(self, **kwargs) -> pn.Column:
+    def generate_section(self, **kwargs: Any) -> pn.Column:
         fastp_json = kwargs.get("fastp_json")
         if not fastp_json:
             raise ValueError("fastp_json is required")
@@ -505,7 +503,7 @@ class HostAlignmentSection(_SectionBase):
     def section_name(self) -> str:
         return "Host alignment"
 
-    def generate_section(self, **kwargs) -> pn.Column:
+    def generate_section(self, **kwargs: Any) -> pn.Column:
         flagstat_file = kwargs.get("flagstat_file")
         secondary_flagstat_file = kwargs.get("secondary_flagstat_file")
         primary_host = kwargs.get("primary_host") or "Human"
@@ -515,9 +513,7 @@ class HostAlignmentSection(_SectionBase):
 
         flagstat_processor = FlagstatProcessor(self.config.get_config("flagstat"))
         flagstat_data = flagstat_processor.process(flagstat_file)
-        primary_pane = flagstat_processor.create_alignment_chart(
-            flagstat_data, primary_host
-        )
+        primary_pane = flagstat_processor.create_alignment_chart(flagstat_data, primary_host)
 
         # KPI tile strip with the headline numbers (total reads,
         # host mapped, non-host, % removed) plus the backend label
@@ -577,7 +573,7 @@ class RawClassificationSection(_SectionBase):
     def section_name(self) -> str:
         return "Classification of reads"
 
-    def generate_section(self, **kwargs) -> pn.Column:
+    def generate_section(self, **kwargs: Any) -> pn.Column:
         """Generate raw classification section."""
         kraken_file = kwargs.get("kraken_file")
         kaiju_table = kwargs.get("kaiju_table")
@@ -680,7 +676,7 @@ class AssemblySection(_SectionBase):
     def section_name(self) -> str:
         return "Assembly statistics"
 
-    def generate_section(self, **kwargs) -> pn.Column:
+    def generate_section(self, **kwargs: Any) -> pn.Column:
         """Generate the assembly section.
 
         Accepts a list of QUAST ``report.tsv`` paths via
@@ -708,7 +704,7 @@ class AssemblySection(_SectionBase):
                 header,
                 pn.pane.Markdown(
                     "*No QUAST reports were supplied. Enable "
-                    "`QUAST: \"TRUE\"` in the virusHanter2 config "
+                    '`QUAST: "TRUE"` in the virusHanter2 config '
                     "to populate this section.*"
                 ),
             )
@@ -720,9 +716,7 @@ class AssemblySection(_SectionBase):
         per_assembler: list[tuple[str, pd.DataFrame]] = []
         for qpath in quast_reports:
             try:
-                quast_processor = QuastProcessor(
-                    self.config.get_config("quast")
-                )
+                quast_processor = QuastProcessor(self.config.get_config("quast"))
                 quast_data = quast_processor.process(qpath)
                 # Derive the assembler label from the report path:
                 # virusHanter2 writes
@@ -731,18 +725,19 @@ class AssemblySection(_SectionBase):
                 # name. Fall back to "Assembly (QUAST)" on
                 # unexpected paths so the widget still has a label.
                 from pathlib import Path as _P
+
                 parts = _P(str(qpath)).parts
                 label = parts[-3] if len(parts) >= 3 else "Assembly (QUAST)"
                 per_assembler.append((label, quast_data))
-                tab_panes.append(
-                    quast_processor.create_summary_table(
-                        quast_data, name=label
-                    )
-                )
-            except Exception as e:  # noqa: BLE001
-                self.logger.warning(
-                    f"Could not render QUAST report {qpath}: {e}"
-                )
+                tab_panes.append(quast_processor.create_summary_table(quast_data, name=label))
+            except (
+                OSError,
+                pd.errors.ParserError,
+                ValueError,
+                DataProcessingError,
+                FileValidationError,
+            ) as e:
+                self.logger.warning(f"Could not render QUAST report {qpath}: {e}")
 
         # Comparison sub-tab pinned at the front when more than one
         # assembler contributed a report. Rows are the QUAST
@@ -756,16 +751,12 @@ class AssemblySection(_SectionBase):
             merged: pd.DataFrame | None = None
             for label, frame in per_assembler:
                 highlight = quast_processor.highlighted(frame).copy()
-                value_col = (
-                    highlight.columns[1]
-                    if len(highlight.columns) >= 2
-                    else None
-                )
+                value_col = highlight.columns[1] if len(highlight.columns) >= 2 else None
                 if value_col is None:
                     continue
-                highlight = highlight[
-                    [quast_processor.METRIC_COLUMN, value_col]
-                ].rename(columns={value_col: label})
+                highlight = highlight[[quast_processor.METRIC_COLUMN, value_col]].rename(
+                    columns={value_col: label}
+                )
                 merged = (
                     highlight
                     if merged is None
@@ -790,8 +781,7 @@ class AssemblySection(_SectionBase):
             return pn.Column(
                 header,
                 pn.pane.Markdown(
-                    "*QUAST reports were supplied but could not "
-                    "be parsed; see the run log.*"
+                    "*QUAST reports were supplied but could not be parsed; see the run log.*"
                 ),
             )
 
@@ -805,7 +795,7 @@ class ContigClassificationSection(_SectionBase):
     def section_name(self) -> str:
         return "Assembly classification"
 
-    def generate_section(self, **kwargs) -> pn.Column:
+    def generate_section(self, **kwargs: Any) -> pn.Column:
         """Generate contig classification section.
 
         Accepts a list of BLAST merged CSVs (one per assembler).
@@ -846,7 +836,13 @@ class ContigClassificationSection(_SectionBase):
         for path in blastn_files:
             try:
                 frame = blast_processor.process(path)
-            except Exception as e:  # noqa: BLE001
+            except (
+                OSError,
+                pd.errors.ParserError,
+                ValueError,
+                DataProcessingError,
+                FileValidationError,
+            ) as e:
                 self.logger.warning(f"Could not parse BLAST CSV {path}: {e}")
                 continue
             if frame is None or frame.empty:
@@ -868,9 +864,7 @@ class ContigClassificationSection(_SectionBase):
         # carried by the virus_names sidecar, pushing the legacy name
         # into the aliases column. Same rule the Dashboard top-5 BLAST
         # card applies, so both views surface the same species labels.
-        blast_data = _apply_canonical_blast_names(
-            blast_data, virus_names, self.logger
-        )
+        blast_data = _apply_canonical_blast_names(blast_data, virus_names, self.logger)
 
         def _table_view(frame: pd.DataFrame) -> pd.DataFrame:
             """Drop bookkeeping columns and pin the identifier columns.
@@ -902,9 +896,7 @@ class ContigClassificationSection(_SectionBase):
                 "sample_id",
                 "match_name_raw",
             ]
-            view = frame.drop(
-                columns=[col for col in columns_to_drop if col in frame.columns]
-            )
+            view = frame.drop(columns=[col for col in columns_to_drop if col in frame.columns])
             if "name" in view.columns:
                 view = view.rename(columns={"name": "seq_name"})
             if "assembler" in view.columns and view["assembler"].isna().all():
@@ -1031,7 +1023,13 @@ class ContigClassificationSection(_SectionBase):
                 gp = GenomadProcessor(self.config.get_config("genomad"))
                 gdf = gp.process(gpath)
                 return gp.create_summary_table(gdf)
-            except Exception as e:  # noqa: BLE001
+            except (
+                OSError,
+                pd.errors.ParserError,
+                ValueError,
+                DataProcessingError,
+                FileValidationError,
+            ) as e:
                 self.logger.warning(f"Could not render geNomad summary {gpath}: {e}")
                 return None
 
@@ -1120,14 +1118,10 @@ class ContigClassificationSection(_SectionBase):
             tab_panes: list = [_build_assembler_tab("All assemblers", blast_data)]
             for asm in present_assemblers:
                 tab_panes.append(
-                    _build_assembler_tab(
-                        asm, blast_data.loc[blast_data["assembler"] == asm]
-                    )
+                    _build_assembler_tab(asm, blast_data.loc[blast_data["assembler"] == asm])
                 )
         else:
-            blast_pane = pn.pane.Vega(
-                blast_plot, sizing_mode="stretch_width", name="BLASTN"
-            )
+            blast_pane = pn.pane.Vega(blast_plot, sizing_mode="stretch_width", name="BLASTN")
             tab_panes = [blast_pane, blast_table]
 
         # geNomad summaries are nested inside each per-assembler tab
@@ -1152,7 +1146,7 @@ class CoverageSection(_SectionBase):
     def section_name(self) -> str:
         return "Alignment coverage"
 
-    def generate_section(self, **kwargs) -> pn.Column:
+    def generate_section(self, **kwargs: Any) -> pn.Column:
         """Generate coverage plots section.
 
         Renders one interactive Altair trace per reference from the
@@ -1183,7 +1177,13 @@ class CoverageSection(_SectionBase):
 
         try:
             df = processor.process(mosdepth_regions)
-        except Exception as e:  # noqa: BLE001
+        except (
+            OSError,
+            pd.errors.ParserError,
+            ValueError,
+            DataProcessingError,
+            FileValidationError,
+        ) as e:
             self.logger.warning(f"Could not read mosdepth regions {mosdepth_regions}: {e}")
             df = pd.DataFrame()
 
@@ -1235,7 +1235,13 @@ class CoverageSection(_SectionBase):
                             strict=False,
                         )
                     )
-            except Exception as e:  # noqa: BLE001
+            except (
+                OSError,
+                pd.errors.ParserError,
+                ValueError,
+                DataProcessingError,
+                FileValidationError,
+            ) as e:
                 self.logger.warning(f"Could not read virus-names sidecar {virus_names}: {e}")
 
         # Coverage thresholds reported beneath each trace. 1x is the
@@ -1247,8 +1253,7 @@ class CoverageSection(_SectionBase):
         thresholds = [1, 3, 5, 10, 100]
         filters = self._filters_block(
             [
-                "Depth thresholds: "
-                + ", ".join(f"{t}x" for t in thresholds),
+                "Depth thresholds: " + ", ".join(f"{t}x" for t in thresholds),
                 "Reference window size set by virusHanter2 COVERAGE_WINDOW "
                 "(default 100 windows per reference).",
                 "References ordered by % bp >= 10x (descending).",
@@ -1259,9 +1264,7 @@ class CoverageSection(_SectionBase):
         # ``% >= 10x`` descending) drives both the summary
         # Tabulator at the top AND the per-reference tab order
         # below so the two views always line up.
-        summary_df = _coverage_summary_frame(
-            df, chrom_to_name, chrom_to_sources, chrom_to_aliases
-        )
+        summary_df = _coverage_summary_frame(df, chrom_to_name, chrom_to_sources, chrom_to_aliases)
         chrom_order: list[str] = summary_df["chrom"].astype(str).tolist()
         df = df.copy()
         df["chrom"] = df["chrom"].astype(str)
@@ -1293,9 +1296,7 @@ class CoverageSection(_SectionBase):
 
             tabs.append(
                 pn.Column(
-                    pn.pane.Vega(
-                        chart, sizing_mode="stretch_width", height=380
-                    ),
+                    pn.pane.Vega(chart, sizing_mode="stretch_width", height=380),
                     pn.pane.Markdown("**Coverage statistics**"),
                     stats_table,
                     name=label,

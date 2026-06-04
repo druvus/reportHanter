@@ -5,6 +5,7 @@ BLAST data processor with improved error handling and configuration.
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import altair as alt
 import pandas as pd
@@ -15,11 +16,44 @@ from ..core.palettes import TAXONOMY_COLORS
 
 
 class BlastProcessor(BaseDataProcessor):
-    """Processes BLAST CSV files and runs BLASTN when needed."""
+    """Processes BLAST CSV files and runs BLASTN when needed.
+
+    .. rubric:: Empty-file contract
+
+    A BLAST CSV is intentionally allowed to be empty.  An empty file
+    means the upstream assembler produced no contigs for this sample
+    and the report must still render (with an empty contig table).
+    ``validate_input`` therefore does **not** reject zero-byte files,
+    and ``_process_file`` returns an empty :class:`pandas.DataFrame`
+    rather than raising.
+
+    By contrast, all other required input files (Kraken, Kaiju, FastP,
+    flagstat, mosdepth regions) must be non-empty; ``BaseDataProcessor``
+    enforces this via ``validate_input``.
+    """
 
     def validate_input(self, file_path: str | Path) -> bool:
-        """Validate BLAST CSV file format."""
-        super().validate_input(file_path)
+        """Validate BLAST CSV file format.
+
+        An empty file is explicitly tolerated: the assembler may
+        have produced no contigs, in which case the report renders
+        with an empty contig table.  Existence and regular-file checks
+        are still applied (via the parent class) before the size
+        check is skipped.
+        """
+        from pathlib import Path as _Path
+
+        from ..core.exceptions import FileValidationError
+
+        fp = _Path(file_path)
+        if not fp.exists():
+            raise FileValidationError(f"File does not exist: {file_path}")
+        if not fp.is_file():
+            raise FileValidationError(f"Path is not a file: {file_path}")
+
+        # Empty BLAST CSV is explicitly allowed: no contigs were assembled.
+        if fp.stat().st_size == 0:
+            return True
 
         try:
             # Check if it's a valid CSV
@@ -31,7 +65,16 @@ class BlastProcessor(BaseDataProcessor):
         return True
 
     def _process_file(self, file_path: str | Path) -> pd.DataFrame:
-        """Process BLAST CSV file into DataFrame."""
+        """Process BLAST CSV file into DataFrame.
+
+        Returns an empty :class:`pandas.DataFrame` when the file has no
+        content, consistent with the empty-file contract described in
+        the class docstring.
+        """
+        from pathlib import Path as _Path
+
+        if _Path(file_path).stat().st_size == 0:
+            return pd.DataFrame()
         return pd.read_csv(file_path)
 
     def run_blastn(self, contigs_file: str | Path, database: str, threads: int = 4) -> pd.DataFrame:
@@ -159,20 +202,10 @@ class BlastProcessor(BaseDataProcessor):
 class BlastPlotGenerator(BasePlotGenerator):
     """Generates Altair charts for BLAST results."""
 
-    def _apply_styling(self, chart: alt.Chart) -> alt.Chart:
-        """Keep the chart's own step-based height.
-
-        The base class's ``_apply_styling`` stamps every chart with
-        ``height=400`` from the default plotting config, which
-        overrides the ``alt.Step(22)`` per-bar height set in
-        ``_create_chart`` / ``create_bp_chart``. The two BLAST
-        charts then render at wildly different heights when only
-        ``_create_chart`` goes through ``generate_plot`` (and so
-        through ``_apply_styling``) while ``create_bp_chart`` is
-        called directly. Preserve the step-based height so the two
-        charts grow in lockstep with the number of BLAST matches.
-        """
-        return chart.resolve_scale(color="independent")
+    # alt.Step-based per-bar heights are set in _create_chart /
+    # create_bp_chart; the base-class height=400 stamp must not
+    # override them.
+    PRESERVE_CHART_HEIGHT = True
 
     DESCRIPTION = (
         "Bar chart summarising BLASTN classification of de novo contigs. "
@@ -182,7 +215,7 @@ class BlastPlotGenerator(BasePlotGenerator):
         "list and sequence retrieval."
     )
 
-    def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
+    def _create_chart(self, data: pd.DataFrame, **kwargs: Any) -> alt.Chart:
         """Create BLAST results bar chart.
 
         Same rounded-corner / white-stroke / taxonomy-palette
@@ -209,7 +242,7 @@ class BlastPlotGenerator(BasePlotGenerator):
         chart = (
             alt.Chart(chart_data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
-            .properties(width="container", height=alt.Step(22))
+            .properties(width="container", height=alt.Step(self.config.get("bar_step_px", 22)))
         )
 
         if multi_assembler:
@@ -260,7 +293,7 @@ class BlastPlotGenerator(BasePlotGenerator):
             ],
         )
 
-    def create_bp_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
+    def create_bp_chart(self, data: pd.DataFrame, **kwargs: object) -> alt.Chart:
         """Companion to ``_create_chart`` that sums contig length
         (``read_len``) per BLAST match.
 
@@ -303,7 +336,7 @@ class BlastPlotGenerator(BasePlotGenerator):
         chart = (
             alt.Chart(chart_data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
-            .properties(width="container", height=alt.Step(22))
+            .properties(width="container", height=alt.Step(self.config.get("bar_step_px", 22)))
         )
 
         # Clean bp bar chart, no overlaid count labels. The

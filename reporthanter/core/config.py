@@ -1,6 +1,7 @@
 """
 Configuration management for reportHanter.
 """
+
 import copy
 import json
 import logging
@@ -12,25 +13,54 @@ from .interfaces import ConfigProvider
 
 
 class DefaultConfig(ConfigProvider):
-    """Default configuration provider with sensible defaults."""
+    """Default configuration provider with sensible defaults.
+
+    .. rubric:: Threshold precedence
+
+    Filtering thresholds (cutoff, max_entries, level, virus_only) are
+    defined in two places: here as ``DEFAULT_CONFIG`` values and as
+    method-signature defaults on each processor's ``filter_data``
+    method.  The two sets of values **must be kept identical**; the
+    method defaults exist only so that the processors work correctly
+    when called without a config object (e.g. in unit tests or
+    standalone scripts).
+
+    When the report pipeline calls ``filter_data`` it always passes
+    the relevant config dict as keyword arguments, so the **config
+    values take precedence** over the method defaults.  Concretely,
+    ``sections.py`` does::
+
+        kraken_config = self.config.get_config("filtering.kraken")
+        processor.filter_data(data, **kraken_config)
+
+    meaning that if you add a new threshold or change a default,
+    update *both* ``DEFAULT_CONFIG`` below *and* the method signature
+    in the corresponding processor.
+    """
 
     DEFAULT_CONFIG = {
         "plotting": {
             "width": "container",
             "height": 400,
-            "color_scheme": "dark2"
+            "color_scheme": "dark2",
+            # Height of each bar in the Kraken, Kaiju and BLAST bar charts
+            # (in pixels, passed as alt.Step).  Increase this value to make
+            # bars taller; decrease it for more compact charts.
+            "bar_step_px": 22,
         },
         "filtering": {
-            "kraken": {
-                "level": "species",
-                "cutoff": 0.001,
-                "max_entries": 10,
-                "virus_only": True
-            },
-            "kaiju": {
-                "cutoff": 0.01,
-                "max_entries": 10
-            }
+            # Kraken thresholds.  Mirror the defaults in
+            # KrakenProcessor.filter_data; keep both in sync.
+            "kraken": {"level": "species", "cutoff": 0.001, "max_entries": 10, "virus_only": True},
+            # Kaiju thresholds.  Mirror the defaults in
+            # KaijuProcessor.filter_data; keep both in sync.
+            "kaiju": {"cutoff": 0.01, "max_entries": 10},
+            # Minimum percentage of reads (or breadth) required for a hit to
+            # appear on the Dashboard landing cards.  Applied to:
+            #   - Kraken top-5 card (% of reads)
+            #   - Kaiju top-5 card  (% of reads)
+            #   - Coverage card     (% bp >= 5x)
+            "dashboard_min_pct": 1.0,
         },
         "report": {
             "template": "fast",
@@ -47,10 +77,7 @@ class DefaultConfig(ConfigProvider):
             "header_color": "#102D5F",
             "header_bg_color": "#ffffff",
         },
-        "logging": {
-            "level": "INFO",
-            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-        }
+        "logging": {"level": "INFO", "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
     }
 
     def __init__(self, config_file: Path | None = None):
@@ -72,7 +99,7 @@ class DefaultConfig(ConfigProvider):
 
     def _validate_against_schema(
         self,
-        user: dict[str, Any],
+        user: Any,
         schema: dict[str, Any],
         path: str,
     ) -> None:
@@ -87,8 +114,7 @@ class DefaultConfig(ConfigProvider):
             dotted = f"{path}.{key}" if path else key
             if key not in schema:
                 logger.warning(
-                    "Unknown configuration key %r (no such key in the "
-                    "DefaultConfig schema)", dotted
+                    "Unknown configuration key %r (no such key in the DefaultConfig schema)", dotted
                 )
                 continue
             if isinstance(schema[key], dict) and isinstance(value, dict):
@@ -101,18 +127,18 @@ class DefaultConfig(ConfigProvider):
                 self._merge_config(base[key], value)
             else:
                 base[key] = value
-    
+
     def get_config(self, section: str | None = None) -> dict[str, Any]:
         """Get configuration dictionary."""
         if section:
-            return self.config.get(section, {})
+            return self.config.get(section, {})  # type: ignore[return-value]
         return self.config
-    
+
     def get(self, key: str, default: Any = None) -> Any:
         """Get a specific configuration value using dot notation."""
-        keys = key.split('.')
-        value = self.config
-        
+        keys = key.split(".")
+        value: Any = self.config
+
         try:
             for k in keys:
                 value = value[k]

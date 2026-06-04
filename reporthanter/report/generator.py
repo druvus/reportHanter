@@ -6,6 +6,7 @@ import base64
 import logging
 from importlib import resources
 from pathlib import Path
+from typing import Any
 
 import altair as alt
 import panel as pn
@@ -215,7 +216,7 @@ class ReportGenerator:
             items.append(Path(singular))
         return items
 
-    def _build_section(self, section_name: str, builder, **kwargs):
+    def _build_section(self, section_name: str, builder: Any, **kwargs: Any) -> Any:
         """Invoke a section builder, attaching the section name to any
         exception so the failing section is identifiable in logs and CLI
         output.
@@ -237,9 +238,7 @@ class ReportGenerator:
         """
         try:
             with (
-                resources.files("reporthanter.assets")
-                .joinpath("reporthanter_logo.png")
-                .open("rb")
+                resources.files("reporthanter.assets").joinpath("reporthanter_logo.png").open("rb")
             ) as fh:
                 data = base64.b64encode(fh.read()).decode("ascii")
             return f"data:image/png;base64,{data}"
@@ -263,8 +262,7 @@ class ReportGenerator:
         logo_uri = self._logo_data_uri()
         if logo_uri:
             logo_html = (
-                f'<img src="{logo_uri}" alt="reportHanter" '
-                'style="height:64px;display:block">'
+                f'<img src="{logo_uri}" alt="reportHanter" style="height:64px;display:block">'
             )
         else:
             logo_html = (

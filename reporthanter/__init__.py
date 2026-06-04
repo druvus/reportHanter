@@ -1,4 +1,5 @@
 # reporthanter/__init__.py
+from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
@@ -13,6 +14,7 @@ from .core.exceptions import (
     ReportGenerationError,
     ReportHanterError,
 )
+from .core.validation import validate_report_inputs
 from .processors.blast_processor import BlastPlotGenerator, BlastProcessor
 from .processors.coverage_processor import CoveragePlotGenerator, CoverageProcessor
 from .processors.fastp_processor import FastpProcessor
@@ -58,28 +60,29 @@ __all__ = [
     "ReportGenerator",
     "ReportHanterError",
     "create_report",
+    "validate_report_inputs",
 ]
 
 
 def create_report(
-    kraken_file,
-    kaiju_table,
-    fastp_json,
-    flagstat_file,
-    mosdepth_regions,
-    blastn_files=None,
-    blastn_file=None,
-    secondary_flagstat_file=None,
-    primary_host="Human",
-    secondary_host=None,
-    sample_name=None,
-    quast_reports=None,
-    quast_report=None,
-    virus_names=None,
-    genomad_summaries=None,
-    genomad_summary=None,
-    config=None,
-):
+    kraken_file: str,
+    kaiju_table: str,
+    fastp_json: str,
+    flagstat_file: str,
+    mosdepth_regions: str,
+    blastn_files: list[str] | None = None,
+    blastn_file: str | None = None,
+    secondary_flagstat_file: str | None = None,
+    primary_host: str = "Human",
+    secondary_host: str | None = None,
+    sample_name: str | None = None,
+    quast_reports: list[str] | None = None,
+    quast_report: str | None = None,
+    virus_names: str | None = None,
+    genomad_summaries: list[str] | None = None,
+    genomad_summary: str | None = None,
+    config: DefaultConfig | None = None,
+) -> object:
     """High-level wrapper around :class:`ReportGenerator`.
 
     Produces a single self-contained HTML report for one sample.
@@ -93,21 +96,49 @@ def create_report(
     Coverage is sourced from a mosdepth ``regions.bed.gz``; the
     legacy ``coverage_folder`` parameter from 0.2.x was removed when
     virusHanter2 retired its bam2plot rule.
+
+    Input files are validated before report generation. A
+    :exc:`~reporthanter.core.exceptions.ConfigurationError` is raised
+    when any required file is absent or empty.
     """
-    generator = ReportGenerator(config or DefaultConfig())
-    return generator.generate_report(
-        blastn_files=blastn_files,
-        blastn_file=blastn_file,
+    # Coalesce singular/plural aliases before validation so the shared
+    # service always receives a flat list.
+    blast_paths: list[str] = list(blastn_files or [])
+    if blastn_file:
+        blast_paths.append(blastn_file)
+    quast_paths: list[str] = list(quast_reports or [])
+    if quast_report:
+        quast_paths.append(quast_report)
+    genomad_paths: list[str] = list(genomad_summaries or [])
+    if genomad_summary:
+        genomad_paths.append(genomad_summary)
+
+    validate_report_inputs(
         kraken_file=kraken_file,
         kaiju_table=kaiju_table,
         fastp_json=fastp_json,
         flagstat_file=flagstat_file,
         mosdepth_regions=mosdepth_regions,
-        quast_reports=quast_reports,
-        quast_report=quast_report,
+        blastn_files=blast_paths,
+        secondary_flagstat_file=secondary_flagstat_file,
         virus_names=virus_names,
-        genomad_summaries=genomad_summaries,
-        genomad_summary=genomad_summary,
+        quast_reports=quast_paths if quast_paths else None,
+        genomad_summaries=genomad_paths if genomad_paths else None,
+    )
+
+    generator = ReportGenerator(config or DefaultConfig())
+    return generator.generate_report(
+        # Pass the already-coalesced path lists so the generator receives
+        # a single list without the singular alias duplicating any entry.
+        blastn_files=blast_paths or None,  # type: ignore[arg-type]
+        kraken_file=kraken_file,
+        kaiju_table=kaiju_table,
+        fastp_json=fastp_json,
+        flagstat_file=flagstat_file,
+        mosdepth_regions=mosdepth_regions,
+        quast_reports=quast_paths or None,  # type: ignore[arg-type]
+        virus_names=virus_names,
+        genomad_summaries=genomad_paths or None,  # type: ignore[arg-type]
         secondary_flagstat_file=secondary_flagstat_file,
         primary_host=primary_host,
         secondary_host=secondary_host,

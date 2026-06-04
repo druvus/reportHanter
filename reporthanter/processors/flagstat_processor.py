@@ -52,37 +52,44 @@ class FlagstatProcessor(BaseDataProcessor):
         )
 
     def _parse_flagstat(self, file_path: str | Path) -> tuple[int, float]:
-        """Parse BWA flagstat file to extract reads and mapping percentage."""
+        """Parse BWA flagstat file to extract reads and mapping percentage.
+
+        Raises :exc:`~reporthanter.core.exceptions.DataProcessingError`
+        when either expected pattern is absent, naming the file so the
+        caller can diagnose format changes without inspecting the
+        exception chain.
+        """
         pattern_total = r"(\d+) \+ \d+ paired in sequencing"
         pattern_mapped = r"(\d+) \+ \d+ with itself and mate mapped"
 
         with open(file_path) as f:
             content = f.read()
 
+        total_matches = re.findall(pattern_total, content)
+        mapped_matches = re.findall(pattern_mapped, content)
+
+        if not total_matches:
+            raise DataProcessingError(
+                f"Could not find 'paired in sequencing' line in flagstat file: {file_path}"
+            )
+        if not mapped_matches:
+            raise DataProcessingError(
+                f"Could not find 'with itself and mate mapped' line in flagstat file: {file_path}"
+            )
+
         try:
-            total_matches = re.findall(pattern_total, content)
-            mapped_matches = re.findall(pattern_mapped, content)
-
-            if not total_matches:
-                raise DataProcessingError("Could not find 'paired in sequencing' in flagstat file")
-            if not mapped_matches:
-                raise DataProcessingError(
-                    "Could not find 'with itself and mate mapped' in flagstat file"
-                )
-
             total_reads = int(total_matches[0])
             total_mapped = int(mapped_matches[0])
+        except ValueError as e:
+            raise DataProcessingError(
+                f"Could not parse integer from flagstat file {file_path}: {e}"
+            ) from e
 
-            percent_mapped = 0.0 if total_reads == 0 else total_mapped / total_reads * 100
+        percent_mapped = 0.0 if total_reads == 0 else total_mapped / total_reads * 100
 
-            return total_reads, percent_mapped
+        return total_reads, percent_mapped
 
-        except (ValueError, IndexError) as e:
-            raise DataProcessingError(f"Error parsing flagstat file: {e}") from e
-
-    def create_alignment_chart(
-        self, data: pd.DataFrame, species: str = "Host"
-    ) -> pn.pane.Vega:
+    def create_alignment_chart(self, data: pd.DataFrame, species: str = "Host") -> pn.pane.Vega:
         """Build the normalised stacked bar pane for one flagstat.
 
         The headline counts that used to be rendered as h3 markdown
@@ -105,20 +112,11 @@ class FlagstatProcessor(BaseDataProcessor):
 class FlagstatPlotGenerator(BasePlotGenerator):
     """Generates Altair charts for alignment statistics."""
 
-    def _apply_styling(self, chart: alt.Chart) -> alt.Chart:
-        """Keep the bar at its own ~40 px height.
+    # The chart height is set in _create_chart (a small single-bar pane);
+    # the base-class height=400 stamp must not override it.
+    PRESERVE_CHART_HEIGHT = True
 
-        The base class's ``_apply_styling`` stamps every chart with
-        ``height=400`` from the default plotting config, which turns
-        a single-row stacked bar into a 400 px tall block of solid
-        colour when one segment dominates (e.g. 99% mapped to a
-        viral reference). The flagstat chart is a one-bar
-        ``stack="normalize"`` visualisation; its height was already
-        set in ``_create_chart`` and should be left alone here.
-        """
-        return chart.resolve_scale(color="independent")
-
-    def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
+    def _create_chart(self, data: pd.DataFrame, **kwargs: object) -> alt.Chart:
         """Create alignment statistics normalised stacked bar chart.
 
         The two-segment bar uses the head and tail of the

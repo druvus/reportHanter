@@ -3,6 +3,7 @@ Kraken data processor with improved error handling and configuration.
 """
 
 from pathlib import Path
+from typing import Any
 
 import altair as alt
 import numpy as np
@@ -79,8 +80,31 @@ class KrakenProcessor(BaseDataProcessor):
         max_entries: int = 10,
         virus_only: bool = True,
     ) -> tuple[pd.DataFrame, float]:
-        """Filter Kraken data by taxonomy level and other criteria."""
+        """Filter Kraken data by taxonomy level and other criteria.
 
+        Returns a tuple of (filtered_df, unclassified_pct).  When
+        ``data`` is empty or contains no row with ``domain ==
+        'unclassified'``, ``unclassified_pct`` is 0.0 and
+        ``filtered_df`` is an empty DataFrame; no ``IndexError`` is
+        raised.
+
+        .. note::
+            Kraken files are required to be non-empty (validated by
+            :func:`~reporthanter.core.validation.validate_report_inputs`).
+            The empty-input guard here is a belt-and-braces measure for
+            callers that use the processor directly.
+
+        .. rubric:: Threshold precedence
+
+        The method-signature defaults (``level="species"``,
+        ``cutoff=0.001``, ``max_entries=10``, ``virus_only=True``)
+        match the values in ``DefaultConfig.DEFAULT_CONFIG["filtering"]["kraken"]``
+        and are used only when this method is called without a config
+        object.  The normal report pipeline always passes the config
+        dict as ``**kwargs``, so the config is the single source of
+        truth in production runs.  If you change a threshold, update
+        **both** the config and the method signature.
+        """
         if level not in self.TAXONOMY_LEVELS:
             raise ValueError(
                 f"Invalid taxonomy level: {level}. Must be one of {list(self.TAXONOMY_LEVELS.keys())}"
@@ -107,6 +131,9 @@ class KrakenProcessor(BaseDataProcessor):
 class KrakenPlotGenerator(BasePlotGenerator):
     """Generates Altair charts for Kraken classification data."""
 
+    # alt.Step-based per-bar height: preserve the chart's own height.
+    PRESERVE_CHART_HEIGHT = True
+
     DESCRIPTION = (
         "Bar chart of Kraken2 taxonomic classifications. The horizontal "
         "axis shows the percentage of reads assigned to each taxon and "
@@ -115,19 +142,7 @@ class KrakenPlotGenerator(BasePlotGenerator):
         "axis title."
     )
 
-    def _apply_styling(self, chart: alt.Chart) -> alt.Chart:
-        """Keep the chart's own step-based height.
-
-        Same rationale as ``BlastPlotGenerator._apply_styling``:
-        the base class's default ``height=400`` would stretch
-        every bar to ~40 px, breaking visual consistency with the
-        narrow 22 px bars used in Host alignment and Assembly
-        classification. ``resolve_scale`` is kept so the colour
-        encoding still works.
-        """
-        return chart.resolve_scale(color="independent")
-
-    def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
+    def _create_chart(self, data: pd.DataFrame, **kwargs: Any) -> alt.Chart:
         """Create Kraken classification bar chart.
 
         Two visual choices for a scientific report:
@@ -154,7 +169,7 @@ class KrakenPlotGenerator(BasePlotGenerator):
         return (
             alt.Chart(data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
-            .properties(width="container", height=alt.Step(22))
+            .properties(width="container", height=alt.Step(self.config.get("bar_step_px", 22)))
             .encode(
                 alt.X(
                     "percent:Q",

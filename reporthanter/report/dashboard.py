@@ -11,11 +11,13 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import panel as pn
 
 from ..core.config import DefaultConfig
+from ..core.exceptions import DataProcessingError, FileValidationError
 from ..core.interfaces import ReportSection
 from ..processors.blast_processor import BlastProcessor
 from ..processors.coverage_processor import CoverageProcessor
@@ -78,7 +80,7 @@ class DashboardSection(ReportSection):
     def section_name(self) -> str:
         return "Dashboard"
 
-    def generate_section(self, **kwargs) -> pn.Column:
+    def generate_section(self, **kwargs: Any) -> pn.Column:
         sample_name = kwargs.get("sample_name") or "Sample"
         fastp_json = kwargs.get("fastp_json")
         flagstat_file = kwargs.get("flagstat_file")
@@ -183,7 +185,14 @@ class DashboardSection(ReportSection):
                 total_raw_n = int(after.get("total_reads", 0))
                 total_raw = f"{total_raw_n / 1000:.1f} K" if total_raw_n else "0"
                 q30 = f"{after.get('q30_rate', 0) * 100:.1f}%"
-            except Exception as exc:  # noqa: BLE001
+            except (
+                OSError,
+                json.JSONDecodeError,
+                ValueError,
+                KeyError,
+                DataProcessingError,
+                FileValidationError,
+            ) as exc:
                 self.logger.warning(f"Could not read fastp JSON {fastp_json}: {exc}")
 
         pct_host = "n/a"
@@ -198,7 +207,14 @@ class DashboardSection(ReportSection):
                 mapped = int(lookup.get("reads_mapped", round(total * pct / 100)))
                 pct_host = f"{pct:.1f}%"
                 non_host = f"{(total - mapped):,}"
-            except Exception as exc:  # noqa: BLE001
+            except (
+                OSError,
+                json.JSONDecodeError,
+                ValueError,
+                KeyError,
+                DataProcessingError,
+                FileValidationError,
+            ) as exc:
                 self.logger.warning(f"Could not read flagstat {flagstat_file}: {exc}")
 
         kraken_pct = "n/a"
@@ -212,7 +228,14 @@ class DashboardSection(ReportSection):
                     virus_only=True,
                 )
                 kraken_pct = f"{(1.0 - float(unclassified)) * 100:.1f}%"
-            except Exception as exc:  # noqa: BLE001
+            except (
+                OSError,
+                json.JSONDecodeError,
+                ValueError,
+                KeyError,
+                DataProcessingError,
+                FileValidationError,
+            ) as exc:
                 self.logger.warning(f"Could not summarise Kraken {kraken_file}: {exc}")
 
         contig_total = 0
@@ -222,7 +245,14 @@ class DashboardSection(ReportSection):
                 try:
                     frame = bp.process(path)
                     contig_total += int(len(frame))
-                except Exception as exc:  # noqa: BLE001
+                except (
+                    OSError,
+                    json.JSONDecodeError,
+                    ValueError,
+                    KeyError,
+                    DataProcessingError,
+                    FileValidationError,
+                ) as exc:
                     self.logger.warning(f"Could not read BLAST CSV {path}: {exc}")
 
         return pn.Row(
@@ -273,11 +303,10 @@ class DashboardSection(ReportSection):
             cols = ["name", "percent", "count_clades"]
             if "aliases" in filt.columns:
                 cols.append("aliases")
-            view = filt[cols].assign(
-                percent=lambda d: (d["percent"] * 100).round(2)
-            )
+            view = filt[cols].assign(percent=lambda d: (d["percent"] * 100).round(2))
             # Drop sub-1% rows: noise hits clutter the landing card.
-            view = view.loc[view["percent"] >= 1.0]
+            min_pct = self.config.get("filtering.dashboard_min_pct", 1.0)
+            view = view.loc[view["percent"] >= min_pct]
             if view.empty:
                 return pn.Column(
                     caption,
@@ -288,7 +317,14 @@ class DashboardSection(ReportSection):
                 _compact_table(view, name="Top Kraken species"),
                 sizing_mode="stretch_width",
             )
-        except Exception as exc:  # noqa: BLE001
+        except (
+            OSError,
+            json.JSONDecodeError,
+            ValueError,
+            KeyError,
+            DataProcessingError,
+            FileValidationError,
+        ) as exc:
             self.logger.warning(f"Kraken summary failed: {exc}")
             return pn.Column(caption, pn.pane.Markdown("*Kraken summary unavailable.*"))
 
@@ -308,11 +344,10 @@ class DashboardSection(ReportSection):
             cols = ["taxon_name", "percent", "reads"]
             if "aliases" in filt.columns:
                 cols.append("aliases")
-            view = filt[cols].assign(
-                percent=lambda d: (d["percent"] * 100).round(2)
-            )
+            view = filt[cols].assign(percent=lambda d: (d["percent"] * 100).round(2))
             # Drop sub-1% rows: noise hits clutter the landing card.
-            view = view.loc[view["percent"] >= 1.0]
+            min_pct = self.config.get("filtering.dashboard_min_pct", 1.0)
+            view = view.loc[view["percent"] >= min_pct]
             if view.empty:
                 return pn.Column(
                     caption,
@@ -323,7 +358,14 @@ class DashboardSection(ReportSection):
                 _compact_table(view, name="Top Kaiju taxa"),
                 sizing_mode="stretch_width",
             )
-        except Exception as exc:  # noqa: BLE001
+        except (
+            OSError,
+            json.JSONDecodeError,
+            ValueError,
+            KeyError,
+            DataProcessingError,
+            FileValidationError,
+        ) as exc:
             self.logger.warning(f"Kaiju summary failed: {exc}")
             return pn.Column(caption, pn.pane.Markdown("*Kaiju summary unavailable.*"))
 
@@ -345,7 +387,14 @@ class DashboardSection(ReportSection):
         for path in blastn_files:
             try:
                 frames.append(bp.process(path))
-            except Exception as exc:  # noqa: BLE001
+            except (
+                OSError,
+                json.JSONDecodeError,
+                ValueError,
+                KeyError,
+                DataProcessingError,
+                FileValidationError,
+            ) as exc:
                 self.logger.warning(f"BLAST card: could not read {path}: {exc}")
         if not frames:
             return pn.Column(caption, pn.pane.Markdown("*BLAST summary unavailable.*"))
@@ -384,7 +433,14 @@ class DashboardSection(ReportSection):
                 for metric in keep:
                     row[metric] = lookup.get(metric, "")
                 rows.append(row)
-            except Exception as exc:  # noqa: BLE001
+            except (
+                OSError,
+                json.JSONDecodeError,
+                ValueError,
+                KeyError,
+                DataProcessingError,
+                FileValidationError,
+            ) as exc:
                 self.logger.warning(f"Assembly summary: could not parse {path}: {exc}")
         if not rows:
             return pn.pane.Markdown("*QUAST reports could not be parsed.*")
@@ -403,7 +459,14 @@ class DashboardSection(ReportSection):
         try:
             processor = CoverageProcessor(self.config.get_config("coverage"))
             df = processor.process(mosdepth_regions)
-        except Exception as exc:  # noqa: BLE001
+        except (
+            OSError,
+            json.JSONDecodeError,
+            ValueError,
+            KeyError,
+            DataProcessingError,
+            FileValidationError,
+        ) as exc:
             self.logger.warning(f"Coverage summary failed: {exc}")
             return pn.pane.Markdown("*Coverage summary unavailable.*")
         if df.empty:
@@ -438,23 +501,28 @@ class DashboardSection(ReportSection):
                             strict=False,
                         )
                     )
-            except Exception as exc:  # noqa: BLE001
+            except (
+                OSError,
+                json.JSONDecodeError,
+                ValueError,
+                KeyError,
+                DataProcessingError,
+                FileValidationError,
+            ) as exc:
                 self.logger.warning(f"Could not read virus-names sidecar {virus_names}: {exc}")
-        summary = _coverage_summary_frame(
-            df, chrom_to_name, chrom_to_sources, chrom_to_aliases
-        )
+        summary = _coverage_summary_frame(df, chrom_to_name, chrom_to_sources, chrom_to_aliases)
         if summary.empty:
             return pn.pane.Markdown("*No references aligned.*")
-        # Drop noise rows: references with less than 1% bp at >= 5x
-        # are typically incidental matches (e.g. a handful of reads
-        # hitting a related genome) and add clutter to the Dashboard
-        # landing card. The full per-reference list stays in the
-        # Alignment coverage tab unfiltered.
+        # Drop noise rows: references below the dashboard minimum coverage
+        # threshold are typically incidental matches and add clutter.
+        # The full per-reference list in the Alignment coverage tab is
+        # not filtered so no data is lost.
+        min_pct = self.config.get("filtering.dashboard_min_pct", 1.0)
         if "pct_ge_5x" in summary.columns:
-            summary = summary.loc[summary["pct_ge_5x"] >= 1.0]
+            summary = summary.loc[summary["pct_ge_5x"] >= min_pct]
         if summary.empty:
             return pn.pane.Markdown(
-                "*No references with >= 1% bp covered at >= 5x.*",
+                f"*No references with >= {min_pct:.0f}% bp covered at >= 5x.*",
                 styles={"margin": "0 10px"},
             )
         cols = ["chrom", "species", "aliases", "length", "mean_depth", "pct_ge_5x", "pct_ge_10x"]

@@ -73,7 +73,5 @@ def test_dashboard_section_renders_with_fixtures(dashboard_section, dashboard_kw
 
 
 def test_dashboard_section_handles_missing_blast(dashboard_section, dashboard_kwargs):
-    col = dashboard_section.generate_section(
-        **{**dashboard_kwargs, "blastn_files": []}
-    )
+    col = dashboard_section.generate_section(**{**dashboard_kwargs, "blastn_files": []})
     assert hasattr(col, "objects")

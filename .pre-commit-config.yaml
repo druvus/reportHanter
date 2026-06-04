@@ -1,3 +1,18 @@
+# Pre-commit hooks for reportHanter.
+#
+# Mirrors the `make all-checks` target (ruff format-check + lint, mypy)
+# so that the same checks run automatically on `git commit`.
+#
+# Install once after cloning:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Run manually against all files:
+#   pre-commit run --all-files
+#
+# Hooks are pinned to the versions used in development; update together
+# with the project dependencies when upgrading.
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
@@ -10,27 +25,21 @@ repos:
       - id: check-merge-conflict
       - id: debug-statements
 
-  - repo: https://github.com/psf/black
-    rev: 23.3.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Pinned to match the ruff version declared in pyproject.toml (>=0.4).
+    rev: v0.14.11
     hooks:
-      - id: black
-        language_version: python3
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
-    hooks:
-      - id: isort
-        args: ["--profile", "black", "--filter-files"]
-
-  - repo: https://github.com/pycqa/flake8
-    rev: 6.0.0
-    hooks:
-      - id: flake8
-        additional_dependencies: [flake8-docstrings]
-        args: ['--max-line-length=100', '--extend-ignore=E203,W503']
+      # Linting: equivalent to `ruff check reporthanter tests`
+      - id: ruff
+        args: [--fix]
+      # Formatting: equivalent to `ruff format reporthanter tests`
+      - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.3.0
+    rev: v1.19.1
     hooks:
       - id: mypy
-        additional_dependencies: [types-requests]
+        additional_dependencies:
+          - pandas-stubs
+          - types-PyYAML
+        args: [--ignore-missing-imports]

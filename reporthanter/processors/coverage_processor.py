@@ -101,4 +101,4 @@ class CoveragePlotGenerator(BasePlotGenerator):
         )
         rule = alt.Chart(data).mark_rule(color="gray").encode(x=x_enc).transform_filter(nearest)
 
-        return alt.layer(area, line, hover_points, rule, title=title)
+        return alt.layer(area, line, hover_points, rule, title=title)  # type: ignore[return-value]

@@ -1,4 +1,5 @@
 """Tests for FlagstatProcessor."""
+
 from pathlib import Path
 
 import pytest
@@ -38,3 +39,37 @@ def test_validate_rejects_non_flagstat_file(tmp_path):
 
     with pytest.raises(DataProcessingError):
         proc.validate_input(bogus)
+
+
+def test_malformed_flagstat_missing_paired_line_raises_clear_error(tmp_path):
+    """_parse_flagstat raises DataProcessingError naming the file when
+    the 'paired in sequencing' line is absent.
+
+    This guards against future samtools output-format changes that
+    drop or rename that line, ensuring a clear diagnostic rather than
+    a raw IndexError.
+    """
+    proc = FlagstatProcessor()
+    malformed = tmp_path / "flagstat_malformed.txt"
+    # Contains 'with itself and mate mapped' but not 'paired in sequencing'.
+    malformed.write_text(
+        "1500 + 0 with itself and mate mapped\n"
+        "50 + 0 singletons (2.50% : N/A)\n"
+        "paired in sequencing\n"  # no leading integer pattern
+    )
+
+    with pytest.raises(DataProcessingError, match="paired in sequencing"):
+        proc.process(str(malformed))
+
+
+def test_malformed_flagstat_missing_mapped_line_raises_clear_error(tmp_path):
+    """_parse_flagstat raises DataProcessingError naming the file when
+    the 'with itself and mate mapped' line is absent.
+    """
+    proc = FlagstatProcessor()
+    malformed = tmp_path / "flagstat_no_mapped.txt"
+    # Contains 'paired in sequencing' but not 'with itself and mate mapped'.
+    malformed.write_text("2000 + 0 paired in sequencing\n1000 + 0 read1\n1000 + 0 read2\n")
+
+    with pytest.raises(DataProcessingError, match="with itself and mate mapped"):
+        proc.process(str(malformed))

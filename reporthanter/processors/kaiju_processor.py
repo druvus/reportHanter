@@ -4,6 +4,7 @@ Kaiju data processor with improved error handling and configuration.
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import altair as alt
 import pandas as pd
@@ -48,8 +49,29 @@ class KaijuProcessor(BaseDataProcessor):
     def filter_data(
         self, data: pd.DataFrame, cutoff: float = 0.01, max_entries: int = 10
     ) -> tuple[pd.DataFrame, float]:
-        """Filter Kaiju data by cutoff and max entries."""
+        """Filter Kaiju data by cutoff and max entries.
 
+        Returns a tuple of (filtered_df, unclassified_pct).  When
+        ``data`` is empty or contains no 'unclassified' row,
+        ``unclassified_pct`` is 0.0 and ``filtered_df`` is an empty
+        DataFrame; no ``IndexError`` is raised.
+
+        .. note::
+            Kaiju tables are required to be non-empty (validated by
+            :func:`~reporthanter.core.validation.validate_report_inputs`).
+            The empty-input guard here is a belt-and-braces measure for
+            callers that use the processor directly.
+
+        .. rubric:: Threshold precedence
+
+        The method-signature defaults (``cutoff=0.01``, ``max_entries=10``)
+        match the values in ``DefaultConfig.DEFAULT_CONFIG["filtering"]["kaiju"]``
+        and are used only when this method is called without a config
+        object.  The normal report pipeline always passes the config
+        dict as ``**kwargs``, so the config is the single source of
+        truth in production runs.  If you change a threshold, update
+        **both** the config and the method signature.
+        """
         # Get unclassified percentage
         unclassified_rows = data.loc[data.taxon_name == "unclassified"]
         unclassified_pct = unclassified_rows.percent.iloc[0] if len(unclassified_rows) > 0 else 0.0
@@ -67,7 +89,15 @@ class KaijuProcessor(BaseDataProcessor):
 
     @staticmethod
     def find_database_files(kaiju_db: str | Path) -> tuple[str, str, str]:
-        """Find Kaiju database files (.fmi, names.dmp, nodes.dmp)."""
+        """Find Kaiju database files (.fmi, names.dmp, nodes.dmp).
+
+        Raises :exc:`~reporthanter.core.exceptions.DataProcessingError`
+        when the directory does not exist or any of the three required
+        database files are absent.  Each error message names the
+        directory that was searched so the caller can produce a
+        diagnostic without having to catch and re-inspect the
+        exception.
+        """
         logger = logging.getLogger(__name__)
         db_path = Path(kaiju_db)
 
@@ -76,35 +106,32 @@ class KaijuProcessor(BaseDataProcessor):
 
         files = list(db_path.iterdir())
 
-        try:
-            fmi_files = [f for f in files if f.suffix == ".fmi"]
-            names_files = [f for f in files if f.name == "names.dmp"]
-            nodes_files = [f for f in files if f.name == "nodes.dmp"]
+        fmi_files = [f for f in files if f.suffix == ".fmi"]
+        names_files = [f for f in files if f.name == "names.dmp"]
+        nodes_files = [f for f in files if f.name == "nodes.dmp"]
 
-            if not fmi_files:
-                raise FileNotFoundError("No .fmi file found")
-            if not names_files:
-                raise FileNotFoundError("names.dmp not found")
-            if not nodes_files:
-                raise FileNotFoundError("nodes.dmp not found")
+        if not fmi_files:
+            raise DataProcessingError(f"No .fmi database file found in {kaiju_db}")
+        if not names_files:
+            raise DataProcessingError(f"names.dmp not found in {kaiju_db}")
+        if not nodes_files:
+            raise DataProcessingError(f"nodes.dmp not found in {kaiju_db}")
 
-            fmi_file = str(fmi_files[0].resolve())
-            names_file = str(names_files[0].resolve())
-            nodes_file = str(nodes_files[0].resolve())
+        fmi_file = str(fmi_files[0].resolve())
+        names_file = str(names_files[0].resolve())
+        nodes_file = str(nodes_files[0].resolve())
 
-            logger.info(
-                f"Found Kaiju database files: fmi={fmi_file}, names={names_file}, nodes={nodes_file}"
-            )
-            return fmi_file, names_file, nodes_file
-
-        except FileNotFoundError as e:
-            raise DataProcessingError(
-                f"Required Kaiju database files not found in {kaiju_db}: {e}"
-            ) from e
+        logger.info(
+            f"Found Kaiju database files: fmi={fmi_file}, names={names_file}, nodes={nodes_file}"
+        )
+        return fmi_file, names_file, nodes_file
 
 
 class KaijuPlotGenerator(BasePlotGenerator):
     """Generates Altair charts for Kaiju classification data."""
+
+    # alt.Step-based per-bar height: preserve the chart's own height.
+    PRESERVE_CHART_HEIGHT = True
 
     DESCRIPTION = (
         "Bar chart of Kaiju protein-level taxonomic classifications. "
@@ -114,12 +141,7 @@ class KaijuPlotGenerator(BasePlotGenerator):
         "reported in the axis title."
     )
 
-    def _apply_styling(self, chart: alt.Chart) -> alt.Chart:
-        """Keep the chart's own step-based height; see the matching
-        override on ``KrakenPlotGenerator`` for the rationale."""
-        return chart.resolve_scale(color="independent")
-
-    def _create_chart(self, data: pd.DataFrame, **kwargs) -> alt.Chart:
+    def _create_chart(self, data: pd.DataFrame, **kwargs: Any) -> alt.Chart:
         """Create Kaiju classification bar chart.
 
         Mirrors the canonical Kraken bar styling: rounded corners,
@@ -138,7 +160,7 @@ class KaijuPlotGenerator(BasePlotGenerator):
         return (
             alt.Chart(data, title=title)
             .mark_bar(cornerRadius=3, stroke="white", strokeWidth=1)
-            .properties(width="container", height=alt.Step(22))
+            .properties(width="container", height=alt.Step(self.config.get("bar_step_px", 22)))
             .encode(
                 alt.X(
                     "percent:Q",

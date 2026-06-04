@@ -1,6 +1,8 @@
 """Tests for KaijuProcessor."""
+
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from reporthanter.core.exceptions import DataProcessingError
@@ -45,3 +47,59 @@ def test_validate_rejects_missing_columns(tmp_path):
     proc = KaijuProcessor()
     with pytest.raises(DataProcessingError):
         proc.validate_input(bogus)
+
+
+def test_filter_data_empty_dataframe_returns_empty_and_zero():
+    """filter_data on an empty DataFrame must not raise IndexError.
+
+    An empty Kaiju table is not expected in normal runs, but the guard
+    must degrade gracefully rather than propagating a raw IndexError.
+    """
+    proc = KaijuProcessor()
+    empty = pd.DataFrame(columns=["percent", "reads", "taxon_id", "taxon_name"])
+    filtered, unclassified_pct = proc.filter_data(empty, cutoff=0.0)
+
+    assert filtered.empty
+    assert unclassified_pct == 0.0
+
+
+def test_filter_data_no_unclassified_row_returns_zero():
+    """filter_data returns unclassified_pct=0.0 when no 'unclassified' row is present."""
+    proc = KaijuProcessor()
+    data = pd.DataFrame(
+        {
+            "percent": [0.30, 0.15],
+            "reads": [300, 150],
+            "taxon_id": [10239, 2],
+            "taxon_name": ["Viruses", "Bacteria"],
+        }
+    )
+    _, unclassified_pct = proc.filter_data(data, cutoff=0.0)
+    assert unclassified_pct == 0.0
+
+
+def test_find_database_files_missing_fmi(tmp_path):
+    """find_database_files raises DataProcessingError when .fmi is absent."""
+    (tmp_path / "names.dmp").write_text("")
+    (tmp_path / "nodes.dmp").write_text("")
+
+    with pytest.raises(DataProcessingError, match=r"\.fmi"):
+        KaijuProcessor.find_database_files(tmp_path)
+
+
+def test_find_database_files_missing_names(tmp_path):
+    """find_database_files raises DataProcessingError when names.dmp is absent."""
+    (tmp_path / "db.fmi").write_text("")
+    (tmp_path / "nodes.dmp").write_text("")
+
+    with pytest.raises(DataProcessingError, match="names.dmp"):
+        KaijuProcessor.find_database_files(tmp_path)
+
+
+def test_find_database_files_missing_nodes(tmp_path):
+    """find_database_files raises DataProcessingError when nodes.dmp is absent."""
+    (tmp_path / "db.fmi").write_text("")
+    (tmp_path / "names.dmp").write_text("")
+
+    with pytest.raises(DataProcessingError, match="nodes.dmp"):
+        KaijuProcessor.find_database_files(tmp_path)
