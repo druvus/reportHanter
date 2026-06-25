@@ -589,8 +589,10 @@ class RawClassificationSection(_SectionBase):
 
         # Create virus-only plot
         kraken_config = self.config.get_config("filtering.kraken")
+        # The virus and domain plots force their own level/virus_only;
+        # these structural choices override the user config dict.
         virus_data, virus_unclassified = kraken_processor.filter_data(
-            kraken_data, virus_only=True, **kraken_config
+            kraken_data, **{**kraken_config, "virus_only": True}
         )
         virus_plot = kraken_plot_generator.generate_plot(
             virus_data,
@@ -600,7 +602,7 @@ class RawClassificationSection(_SectionBase):
 
         # Create domain plot
         domain_data, domain_unclassified = kraken_processor.filter_data(
-            kraken_data, level="domain", virus_only=False, **kraken_config
+            kraken_data, **{**kraken_config, "level": "domain", "virus_only": False}
         )
         domain_plot = kraken_plot_generator.generate_plot(
             domain_data,

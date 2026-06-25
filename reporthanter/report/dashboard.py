@@ -222,11 +222,10 @@ class DashboardSection(ReportSection):
             try:
                 kp = KrakenProcessor(self.config.get_config("kraken"))
                 kdata = kp.process(kraken_file)
-                _filt, unclassified = kp.filter_data(
-                    kdata,
-                    **self.config.get_config("filtering.kraken"),
-                    virus_only=True,
-                )
+                # virus_only is structural for this card and overrides
+                # whatever the user config sets.
+                kraken_cfg = {**self.config.get_config("filtering.kraken"), "virus_only": True}
+                _filt, unclassified = kp.filter_data(kdata, **kraken_cfg)
                 kraken_pct = f"{(1.0 - float(unclassified)) * 100:.1f}%"
             except (
                 OSError,
@@ -299,7 +298,8 @@ class DashboardSection(ReportSection):
             kdata = kp.process(kraken_file)
             config = dict(self.config.get_config("filtering.kraken"))
             config["max_entries"] = 5
-            filt, _ = kp.filter_data(kdata, virus_only=True, **config)
+            config["virus_only"] = True
+            filt, _ = kp.filter_data(kdata, **config)
             cols = ["name", "percent", "count_clades"]
             if "aliases" in filt.columns:
                 cols.append("aliases")

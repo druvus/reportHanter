@@ -86,6 +86,11 @@ class FlagstatProcessor(BaseDataProcessor):
             ) from e
 
         percent_mapped = 0.0 if total_reads == 0 else total_mapped / total_reads * 100
+        # Clamp to [0, 100]: some samtools outputs count supplementary /
+        # secondary alignments so "with itself and mate mapped" exceeds
+        # "paired in sequencing", which would otherwise yield a >100%
+        # mapped tile and a negative "unaligned" segment in the chart.
+        percent_mapped = max(0.0, min(100.0, percent_mapped))
 
         return total_reads, percent_mapped
 

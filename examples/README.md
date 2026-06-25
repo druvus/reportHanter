@@ -11,21 +11,6 @@ examples/
   configurations/
     README.md
     config_example.json        Default-generator configuration
-  demos/
-    enhanced_visualization_demo.py
-                               Walkthrough of the enhanced
-                               visualisation layer
-```
-
-Visualisation preset files (`visualization_scientific.json`,
-`visualization_executive.json`, `visualization_minimal.json`,
-`visualization_publication.json`,
-`visualization_comprehensive.json`) are not committed; generate them
-on demand:
-
-```python
-from reporthanter.visualization import create_visualization_examples
-create_visualization_examples()
 ```
 
 ## Running the default report from the command line
@@ -37,7 +22,7 @@ reporthanter \
     --kaiju_table    your_kaiju.tsv \
     --fastp_json     your_fastp.json \
     --flagstat_file  your_flagstat.txt \
-    --coverage_folder your_plots/ \
+    --mosdepth_regions your_regions.bed.gz \
     --output         report.html \
     --sample_name    "Example_Sample"
 ```
@@ -63,7 +48,7 @@ report = create_report(
     kaiju_table="your_kaiju.tsv",
     fastp_json="your_fastp.json",
     flagstat_file="your_flagstat.txt",
-    coverage_folder="your_plots/",
+    mosdepth_regions="your_regions.bed.gz",
     sample_name="Example_Sample",
 )
 report.save("python_report.html")
@@ -82,69 +67,32 @@ report = generator.generate_report(
     kaiju_table="your_kaiju.tsv",
     fastp_json="your_fastp.json",
     flagstat_file="your_flagstat.txt",
-    coverage_folder="your_plots/",
+    mosdepth_regions="your_regions.bed.gz",
     sample_name="Example_Sample",
 )
 generator.save_report(report, "python_report.html")
 ```
 
-## Enhanced visualisation layer
+## Multi-assembler input
 
-Note the keyword difference: the enhanced generator takes
-`blast_file`, the default generator takes `blastn_file`.
-
-```python
-from reporthanter.visualization import EnhancedReportGenerator
-
-generator = EnhancedReportGenerator(viz_config="scientific")
-report = generator.generate_enhanced_report(
-    kraken_file="your_kraken.tsv",
-    kaiju_table="your_kaiju.tsv",
-    blast_file="your_blast.csv",
-    fastp_json="your_fastp.json",
-    flagstat_file="your_flagstat.txt",
-    coverage_folder="your_plots/",
-)
-```
-
-Available presets: `scientific`, `executive`, `minimal`,
-`publication`.
-
-To use a JSON configuration file, load it through
-`VisualizationConfigManager` and pass the resulting
-`VisualizationConfig`:
-
-```python
-from pathlib import Path
-from reporthanter.visualization import (
-    EnhancedReportGenerator, VisualizationConfigManager,
-)
-
-viz_manager = VisualizationConfigManager(Path("my_viz_config.json"))
-generator = EnhancedReportGenerator(viz_config=viz_manager.config)
-```
-
-## Demo script
+`--blastn_file`, `--quast_report` and `--genomad_summary` accept
+repeated values, one per assembler, so a virusHanter2 run with
+several assemblers can pass each path in turn:
 
 ```bash
-python examples/demos/enhanced_visualization_demo.py
+reporthanter \
+    --blastn_file MEGAHIT/blast.csv \
+    --blastn_file metaSPAdes/blast.csv \
+    --kraken_file your_kraken.tsv \
+    --kaiju_table your_kaiju.tsv \
+    --fastp_json  your_fastp.json \
+    --flagstat_file your_flagstat.txt \
+    --mosdepth_regions your_regions.bed.gz \
+    --output report.html
 ```
 
-The script walks through the available chart types, colour
-schemes, layout templates and the configuration system, and prints
-their effect on small synthetic data.
-
-## Validating a configuration
-
-```python
-from reporthanter.visualization import VisualizationConfigManager
-
-manager = VisualizationConfigManager()
-issues = manager.validate_config(manager.get_preset("scientific"))
-if issues:
-    for issue in issues:
-        print(issue)
-```
+The singular form (one `--blastn_file`) still works for a
+single-assembler run.
 
 ## See also
 

@@ -80,11 +80,13 @@ class DefaultConfig(ConfigProvider):
         "logging": {"level": "INFO", "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
     }
 
-    def __init__(self, config_file: Path | None = None):
+    def __init__(self, config_file: str | Path | None = None):
         # deepcopy so per-instance mutations don't leak into DEFAULT_CONFIG
         self.config = copy.deepcopy(self.DEFAULT_CONFIG)
-        if config_file and config_file.exists():
-            self._load_config_file(config_file)
+        if config_file is not None:
+            config_file = Path(config_file)
+            if config_file.exists():
+                self._load_config_file(config_file)
 
     def _load_config_file(self, config_file: Path) -> None:
         """Load configuration from JSON file."""
@@ -129,10 +131,18 @@ class DefaultConfig(ConfigProvider):
                 base[key] = value
 
     def get_config(self, section: str | None = None) -> dict[str, Any]:
-        """Get configuration dictionary."""
-        if section:
-            return self.config.get(section, {})  # type: ignore[return-value]
-        return self.config
+        """Get a configuration sub-section.
+
+        ``section`` may be a top-level key (``"plotting"``) or a
+        dotted path into nested dictionaries (``"filtering.kraken"``).
+        Returns an empty dict when the section is absent or does not
+        resolve to a dict, so callers can safely splat the result as
+        keyword arguments.
+        """
+        if section is None:
+            return self.config
+        value = self.get(section)
+        return value if isinstance(value, dict) else {}
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a specific configuration value using dot notation."""

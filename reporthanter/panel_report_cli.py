@@ -14,6 +14,11 @@ from pathlib import Path
 from reporthanter.core.config import DefaultConfig
 from reporthanter.core.exceptions import ConfigurationError, ReportHanterError
 from reporthanter.core.validation import validate_report_inputs
+from reporthanter.processors.coverage_processor import CoverageProcessor
+from reporthanter.processors.fastp_processor import FastpProcessor
+from reporthanter.processors.flagstat_processor import FlagstatProcessor
+from reporthanter.processors.kaiju_processor import KaijuProcessor
+from reporthanter.processors.kraken_processor import KrakenProcessor
 from reporthanter.report.generator import ReportGenerator
 
 
@@ -139,6 +144,13 @@ def main() -> None:
         logger.info("Input validation passed")
 
         if args.validate_only:
+            # Existence/size checks above do not parse the files, so a
+            # structurally broken but present input would pass and only
+            # fail later during real generation. Parse the required
+            # structural inputs through their processors so --validate_only
+            # actually catches malformed content.
+            logger.info("Validating input contents...")
+            validate_input_contents(args, config)
             logger.info("Validation complete. Exiting.")
             return
 
@@ -206,6 +218,48 @@ def validate_inputs(args: argparse.Namespace) -> None:
         for error in errors:
             logging.error(error)
         raise ConfigurationError(f"Output path validation failed with {len(errors)} error(s)")
+
+
+def validate_input_contents(args: argparse.Namespace, config: DefaultConfig) -> None:
+    """Parse the required structural inputs to catch malformed content.
+
+    Existence/size checks in :func:`validate_inputs` do not open the
+    files. This parses each required structural input through its
+    processor (the same processors and config sections the report uses),
+    so ``--validate_only`` surfaces a corrupt Kraken/Kaiju TSV, a
+    non-JSON fastp file, a malformed flagstat, or an unreadable mosdepth
+    BED before a real run is attempted. Optional and empty-tolerated
+    inputs (BLAST, QUAST, geNomad) are left to generation, where their
+    sections already degrade gracefully.
+
+    Raises :exc:`ConfigurationError` listing every input that failed to
+    parse.
+    """
+    checks = (
+        ("Kraken file", KrakenProcessor(config.get_config("kraken")), args.kraken_file),
+        ("Kaiju table", KaijuProcessor(config.get_config("kaiju")), args.kaiju_table),
+        ("FastP JSON", FastpProcessor(config.get_config("fastp")), args.fastp_json),
+        ("Flagstat file", FlagstatProcessor(config.get_config("flagstat")), args.flagstat_file),
+        (
+            "Mosdepth regions file",
+            CoverageProcessor(config.get_config("coverage")),
+            args.mosdepth_regions,
+        ),
+    )
+    errors: list[str] = []
+    for name, processor, path in checks:
+        try:
+            processor.process(path)
+        except ReportHanterError as exc:
+            errors.append(f"{name} could not be parsed: {exc}")
+
+    if errors:
+        for error in errors:
+            logging.error(error)
+        raise ConfigurationError(
+            f"Input content validation failed with {len(errors)} error(s); "
+            "see the log output above for details."
+        )
 
 
 def setup_logging(log_level: str, config: DefaultConfig | None = None) -> None:
