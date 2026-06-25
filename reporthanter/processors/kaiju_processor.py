@@ -76,12 +76,16 @@ class KaijuProcessor(BaseDataProcessor):
         unclassified_rows = data.loc[data.taxon_name == "unclassified"]
         unclassified_pct = unclassified_rows.percent.iloc[0] if len(unclassified_rows) > 0 else 0.0
 
-        # Filter out unclassified entries and apply cutoff
+        # Filter out unclassified entries and apply cutoff. Both masks
+        # use callables so they evaluate against the chained (dropped /
+        # sorted) frame rather than the original `data`; a boolean Series
+        # indexed over `data` only aligns today because the index is
+        # preserved and unique through the prior steps.
         filtered_df = (
             data.drop(columns=["file"], errors="ignore")
             .sort_values("percent", ascending=False)
-            .loc[data.taxon_name != "unclassified"]
-            .loc[data.percent > cutoff]
+            .loc[lambda d: d.taxon_name != "unclassified"]
+            .loc[lambda d: d.percent > cutoff]
             .head(max_entries)
         )
 

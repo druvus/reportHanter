@@ -21,6 +21,22 @@ def test_parse_well_formed_flagstat():
     assert lookup["reads_unmapped"] == 550
 
 
+def test_over_100_percent_mapped_is_clamped(tmp_path):
+    # Some samtools outputs count supplementary / secondary alignments so
+    # "with itself and mate mapped" exceeds "paired in sequencing". The
+    # mapped percentage must clamp to 100 and unmapped must not go
+    # negative.
+    flagstat = tmp_path / "flagstat_over100.txt"
+    flagstat.write_text("1000 + 0 paired in sequencing\n1200 + 0 with itself and mate mapped\n")
+    proc = FlagstatProcessor()
+    df = proc.process(str(flagstat))
+
+    lookup = dict(zip(df["metric"], df["value"], strict=False))
+    assert lookup["percent_mapped"] == 100.0
+    assert lookup["reads_mapped"] == 1000
+    assert lookup["reads_unmapped"] == 0
+
+
 def test_zero_total_reads_does_not_divide_by_zero():
     proc = FlagstatProcessor()
     df = proc.process(str(FIXTURES / "flagstat_zero.txt"))

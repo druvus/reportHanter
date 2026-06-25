@@ -114,10 +114,14 @@ class KrakenProcessor(BaseDataProcessor):
         unclassified_rows = data.loc[data.domain == "unclassified"]
         unclassified_pct = unclassified_rows.percent.iloc[0] if len(unclassified_rows) > 0 else 0.0
 
-        # Filter by taxonomy level and cutoff
+        # Filter by taxonomy level and cutoff. The cutoff mask uses a
+        # callable so it is evaluated against the already level-filtered
+        # frame rather than the original `data` (a boolean Series indexed
+        # over `data` only happens to align today because the index is
+        # preserved and unique).
         filtered_df = (
             data.loc[data.tax_lvl == self.TAXONOMY_LEVELS[level]]
-            .loc[data.percent > cutoff]
+            .loc[lambda d: d.percent > cutoff]
             .sort_values("percent", ascending=False)
         )
 

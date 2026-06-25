@@ -5,6 +5,100 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-06-04
+
+Robustness and quality hardening. Both public surfaces
+(`create_report`, `ReportGenerator`) are preserved and the default
+report output is unchanged.
+
+### Added
+- Shared input validation (`core/validation.py`) reused by both
+  `create_report()` and the CLI, including fastp JSON structure
+  checks.
+
+### Changed
+- Empty or malformed Kaiju / Kraken / flagstat inputs now raise a
+  clear `DataProcessingError` instead of an `IndexError`.
+- Broad `except Exception` sites replaced with specific exception
+  types.
+- Magic numbers (bar step height, the sub-1 % dashboard filter)
+  moved into the configuration; the four `_apply_styling` overrides
+  collapsed onto a single `PRESERVE_CHART_HEIGHT` base-class flag.
+- `mypy` is now enforced as part of `make all-checks` (0 errors,
+  previously 53); critical-path test coverage raised to 77 % (from
+  45 %). Pre-commit configuration refreshed to ruff + mypy. Empty-file
+  and threshold-precedence contracts documented.
+
+## [0.8.11] - 2026-05-26
+
+### Added
+- `create_report()` gains a `primary_host` parameter.
+
+### Changed
+- `__version__` is read dynamically from the installed-package
+  metadata so it tracks `pyproject.toml`. Test-suite tidy.
+
+## [0.8.10] - 2026-05-26
+
+### Changed
+- Standardised the narrow bar styling across the Kraken, Kaiju,
+  BLAST and Host alignment charts.
+
+## [0.8.9] - 2026-05-25
+
+### Changed
+- Dashboard landing cards drop rows below 1 % of reads to reduce
+  noise.
+
+## [0.8.8] - 2026-05-25
+
+### Changed
+- Assembly classification layout polish.
+
+## [0.8.7] - 2026-05-25
+
+### Changed
+- Surface the ICTV-canonical species names in the Dashboard and the
+  contig table.
+
+## [0.8.6] - 2026-05-25
+
+### Fixed
+- Host alignment: corrected bar height, surfaced the host name, and
+  made the primary and secondary panels symmetric.
+
+## [0.8.5] - 2026-05-25
+
+### Changed
+- Tab and banner alignment; dead-code purge; raw column-name
+  handling.
+
+## [0.8.4] - 2026-05-25
+
+### Removed
+- The broken "Download contig table as CSV" button.
+
+## [0.8.3] - 2026-05-25
+
+### Changed
+- Dropped the header filters from the Dashboard tables.
+
+## [0.8.2] - 2026-05-25
+
+### Added
+- Per-column header filters on the Coverage and Dashboard tables.
+
+## [0.8.1] - 2026-05-25
+
+### Added
+- Per-column header filters on the BLAST contig table.
+
+## [0.8.0] - 2026-05-25
+
+### Added
+- Light, brand-aligned report header with the embedded reportHanter
+  wordmark.
+
 ## [0.7.0] - 2026-05-24
 
 ### Added
@@ -79,6 +173,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Host alignment, Classification of reads, Assembly statistics,
   Assembly classification, Alignment coverage) keep their layout
   and order.
+
+## [0.5.11] - 2026-05-23
+
+### Changed
+- Compact host-alignment bar.
+
+## [0.5.10] - 2026-05-23
+
+### Added
+- NCBI Nucleotide link formatter for the `accession` and `chrom`
+  columns.
+
+## [0.5.9] - 2026-05-23
+
+### Changed
+- Assembly classification split into two charts: contig count and
+  cumulative bp shown separately.
+
+## [0.5.8] - 2026-05-22
+
+### Changed
+- Coverage references use a matched ordering between the summary
+  table and the per-reference tabs (row-click drill-in removed; the
+  table row order pins the tab order).
+
+## [0.5.7] - 2026-05-22
+
+### Changed
+- Coverage ordering plus row-click drill-in; Host header
+  de-duplication; wider Assembly chart.
+
+## [0.5.6] - 2026-05-22
+
+### Changed
+- UX polish: chart consolidation, a Coverage summary table, an
+  Assembly comparison view and the Host KPI strip.
+
+## [0.5.5] - 2026-05-22
+
+### Added
+- Cumulative-bp chart, a per-reference coverage statistics table and
+  per-assembler QUAST labels.
+
+## [0.5.4] - 2026-05-22
+
+### Changed
+- Six-tab data-flow layout.
+
+## [0.5.3] - 2026-05-22
+
+### Changed
+- Dedicated Assembly section for QUAST, separate from Classification
+  of Contigs.
+
+## [0.5.2] - 2026-05-22
+
+### Changed
+- QUAST sub-tab relocated to Classification of Contigs.
+
+## [0.5.1] - 2026-05-21
+
+### Added
+- `sources` column on the coverage labels; per-assembler sub-tab
+  layout.
+
+## [0.5.0] - 2026-05-21
+
+### Added
+- Multi-assembler contig table: BLAST CSVs are accepted as a list
+  (one per assembler) and the contig table carries an `assembler`
+  column.
+
+## [0.4.2] - 2026-05-21
+
+### Fixed
+- Dropped `interactive()` on the nominal-axis bar charts.
+
+## [0.4.1] - 2026-05-21
+
+### Fixed
+- Bars-only charts, fixing blank Kraken / Kaiju / BLAST panels.
 
 ## [0.4.0] - 2026-05-21
 
