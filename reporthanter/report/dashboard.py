@@ -69,6 +69,28 @@ def _compact_table(
     )
 
 
+def _kraken_viral_percent(kdata: pd.DataFrame) -> float:
+    """Percent of reads Kraken assigned to the Viruses domain (0-100).
+
+    Reads the Viruses superkingdom row -- ``tax_lvl == "D"`` in the
+    standard pluspf database, ``"R1"`` in the smaller viral-only
+    ``k2_viral_*`` databases -- from the processed Kraken frame, whose
+    ``percent`` column is already a fraction (``KrakenProcessor.process``
+    divides by 100). This mirrors the canonical ``kraken_virus_percent``
+    in ``aggregate_run_information`` so the Dashboard KPI agrees with the
+    run-information CSV and the Classification-of-reads tab rather than
+    reporting the total-classified fraction. Returns 0.0 when no Viruses
+    row is present.
+    """
+    if "name" not in kdata.columns or "tax_lvl" not in kdata.columns:
+        return 0.0
+    rows = kdata.loc[
+        (kdata["tax_lvl"].isin(["D", "R1"])) & (kdata["name"] == "Viruses"),
+        "percent",
+    ]
+    return float(rows.iloc[0]) * 100 if not rows.empty else 0.0
+
+
 class DashboardSection(ReportSection):
     """First-tab landing summary."""
 
@@ -222,11 +244,12 @@ class DashboardSection(ReportSection):
             try:
                 kp = KrakenProcessor(self.config.get_config("kraken"))
                 kdata = kp.process(kraken_file)
-                # virus_only is structural for this card and overrides
-                # whatever the user config sets.
-                kraken_cfg = {**self.config.get_config("filtering.kraken"), "virus_only": True}
-                _filt, unclassified = kp.filter_data(kdata, **kraken_cfg)
-                kraken_pct = f"{(1.0 - float(unclassified)) * 100:.1f}%"
+                # The tile is labelled "Reads classified (Kraken viral)", so it
+                # must report the Viruses-domain fraction, not the fraction
+                # classified to any taxon. The previous (1 - unclassified)
+                # computation ignored the virus filter entirely and overstated
+                # the viral signal on host/bacteria-heavy samples.
+                kraken_pct = f"{_kraken_viral_percent(kdata):.1f}%"
             except (
                 OSError,
                 json.JSONDecodeError,
