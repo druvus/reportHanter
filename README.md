@@ -142,6 +142,7 @@ reporthanter \
 | `--virus_names` | Optional TSV from `virusHanter2`'s `bwa_align_to_kraken_hits` rule mapping chrom -> (tax_id, species, sources). When present, coverage tab labels carry the species + classifier-source suffix. |
 | `--quast_report` | Optional QUAST `report.tsv`. **Repeatable**: pass once per assembler. |
 | `--genomad_summary` | Optional geNomad `<sample>_virus_summary.tsv`. **Repeatable**: pass once per assembler. |
+| `--provenance_file` | Optional `run_provenance_<batch>.json` from `virusHanter2`. When present, a Provenance tab lists the reference database snapshots and resolved tool versions that produced the run. |
 | `--output` | Output HTML path. |
 | `--sample_name` | Optional sample identifier shown in the report header. |
 | `--secondary_flagstat_file` | Optional flagstat for a second host. |

@@ -19,6 +19,7 @@ from ..processors.flagstat_processor import FlagstatProcessor
 from ..processors.genomad_processor import GenomadProcessor
 from ..processors.kaiju_processor import KaijuPlotGenerator, KaijuProcessor
 from ..processors.kraken_processor import KrakenPlotGenerator, KrakenProcessor
+from ..processors.provenance_processor import ProvenanceProcessor
 from ..processors.quast_processor import QuastProcessor
 
 
@@ -1336,3 +1337,77 @@ class CoverageSection(_SectionBase):
         )
 
         return pn.Column(header, filters, summary_block, pn.layout.Divider(), tabs)
+
+
+class ProvenanceSection(_SectionBase):
+    """Report section recording what produced the run.
+
+    Renders the machine-readable provenance sidecar virusHanter2 writes
+    (``run_provenance_<batch>.json``): the reference databases (with a
+    robust build identity rather than a fragile mtime) and the resolved
+    versions of the tools that actually ran. The section only reads the
+    sidecar -- it derives nothing -- and shows only short ``folder/leaf``
+    paths, never the operator's absolute filesystem layout. It degrades
+    to a short note when no sidecar is supplied so older callers still
+    render.
+    """
+
+    @property
+    def section_name(self) -> str:
+        return "Provenance"
+
+    def _table(self, frame: pd.DataFrame, empty_note: str) -> pn.viewable.Viewable:
+        if frame.empty:
+            return pn.pane.Markdown(empty_note, styles={"margin": "0 10px 10px 10px"})
+        return pn.widgets.Tabulator(
+            frame,
+            disabled=True,
+            show_index=False,
+            layout="fit_data_table",
+            sizing_mode="stretch_width",
+            configuration={"clipboard": True, "clipboardCopyRowRange": "active"},
+        )
+
+    def generate_section(self, **kwargs: Any) -> pn.Column:
+        provenance_file = kwargs.get("provenance_file")
+        header = self._create_header(
+            """
+            ## Provenance
+            Which reference databases and application versions produced
+            this report. Database snapshots carry a build identity (not
+            just a file date); tool versions are the conda-resolved
+            versions that actually ran. Paths are shown as folder/file
+            only.
+            """
+        )
+
+        if not provenance_file:
+            return pn.Column(
+                header,
+                pn.pane.Markdown(
+                    "Provenance was not recorded for this run.",
+                    styles={"margin": "0 10px 10px 10px"},
+                ),
+            )
+
+        processor = ProvenanceProcessor(self.config)
+        data = processor.load(provenance_file)
+        if not data:
+            return pn.Column(
+                header,
+                pn.pane.Markdown(
+                    "Provenance sidecar could not be read.",
+                    styles={"margin": "0 10px 10px 10px"},
+                ),
+            )
+
+        return pn.Column(
+            header,
+            pn.pane.Markdown("### Run", styles={"margin": "0 10px 0 10px"}),
+            self._table(processor.run_frame(data), "No run metadata recorded."),
+            pn.pane.Markdown("### Reference databases", styles={"margin": "8px 10px 0 10px"}),
+            self._table(processor.databases_frame(data), "No databases recorded."),
+            pn.pane.Markdown("### Application versions", styles={"margin": "8px 10px 0 10px"}),
+            self._table(processor.software_frame(data), "No tool versions recorded."),
+            sizing_mode="stretch_width",
+        )
