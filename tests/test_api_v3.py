@@ -53,6 +53,7 @@ _EXPECTED_CREATE_REPORT_PARAMS = frozenset(
         "virus_names",
         "genomad_summaries",
         "genomad_summary",
+        "provenance_file",
         "config",
     }
 )

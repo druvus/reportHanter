@@ -93,6 +93,17 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--provenance_file",
+        default=None,
+        help=(
+            "Optional path to the run provenance sidecar "
+            "(run_provenance_<batch>.json) written by virusHanter2. When "
+            "supplied, a Provenance tab lists the reference database "
+            "snapshots and the resolved tool versions that produced the "
+            "run. Absent -> the tab shows 'not recorded'."
+        ),
+    )
+    parser.add_argument(
         "--secondary_flagstat_file",
         default=None,
         help="Path to the secondary flagstat file (optional).",
@@ -169,6 +180,7 @@ def main() -> None:
             virus_names=args.virus_names,
             quast_reports=args.quast_report,
             genomad_summaries=args.genomad_summary,
+            provenance_file=args.provenance_file,
             secondary_flagstat_file=args.secondary_flagstat_file,
             primary_host=args.primary_host,
             secondary_host=args.secondary_host,

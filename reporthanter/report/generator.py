@@ -19,6 +19,7 @@ from .sections import (
     ContigClassificationSection,
     CoverageSection,
     HostAlignmentSection,
+    ProvenanceSection,
     RawClassificationSection,
     ReadStatisticsSection,
 )
@@ -47,6 +48,7 @@ class ReportGenerator:
             "assembly": AssemblySection(self.config),
             "contig_classification": ContigClassificationSection(self.config),
             "coverage": CoverageSection(self.config),
+            "provenance": ProvenanceSection(self.config),
         }
 
     def _setup_panel(self) -> None:
@@ -91,6 +93,7 @@ class ReportGenerator:
         virus_names: str | Path | None = None,
         genomad_summaries: list[str | Path] | None = None,
         genomad_summary: str | Path | None = None,
+        provenance_file: str | Path | None = None,
     ) -> pn.Column:
         """Generate the complete report.
 
@@ -176,6 +179,14 @@ class ReportGenerator:
             virus_names=virus_names,
         )
 
+        # Provenance sits last: it is the "methods" record of which
+        # databases and tool versions produced everything above.
+        provenance_section = self._build_section(
+            "Provenance",
+            self.sections["provenance"].generate_section,
+            provenance_file=provenance_file,
+        )
+
         try:
             header = self._create_main_header(sample_name)
             main_tabs = pn.Tabs(
@@ -186,6 +197,7 @@ class ReportGenerator:
                 ("Assembly statistics", assembly_section),
                 ("Assembly classification", contig_classification_section),
                 ("Alignment coverage", coverage_section),
+                ("Provenance", provenance_section),
                 tabs_location="left",
             )
             report = pn.Column(header, pn.layout.Divider(), main_tabs)

@@ -63,7 +63,7 @@ remain stable:
 --kraken_file --kaiju_table --fastp_json --flagstat_file \
 --mosdepth_regions --output \
 [--quast_report (repeatable) --genomad_summary (repeatable) \
- --virus_names --sample_name \
+ --virus_names --provenance_file --sample_name \
  --secondary_flagstat_file --secondary_host \
  --config_file --log_level --validate_only]
 ```

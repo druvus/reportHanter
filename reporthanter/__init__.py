@@ -22,6 +22,7 @@ from .processors.flagstat_processor import FlagstatProcessor
 from .processors.genomad_processor import GenomadProcessor
 from .processors.kaiju_processor import KaijuPlotGenerator, KaijuProcessor
 from .processors.kraken_processor import KrakenPlotGenerator, KrakenProcessor
+from .processors.provenance_processor import ProvenanceProcessor
 from .processors.quast_processor import QuastProcessor
 
 # Main report generator
@@ -55,6 +56,7 @@ __all__ = [
     "KrakenPlotGenerator",
     "KrakenProcessor",
     "PlotGenerationError",
+    "ProvenanceProcessor",
     "QuastProcessor",
     "ReportGenerationError",
     "ReportGenerator",
@@ -81,6 +83,7 @@ def create_report(
     virus_names: str | None = None,
     genomad_summaries: list[str] | None = None,
     genomad_summary: str | None = None,
+    provenance_file: str | None = None,
     config: DefaultConfig | None = None,
 ) -> object:
     """High-level wrapper around :class:`ReportGenerator`.
@@ -139,6 +142,7 @@ def create_report(
         quast_reports=quast_paths or None,  # type: ignore[arg-type]
         virus_names=virus_names,
         genomad_summaries=genomad_paths or None,  # type: ignore[arg-type]
+        provenance_file=provenance_file,
         secondary_flagstat_file=secondary_flagstat_file,
         primary_host=primary_host,
         secondary_host=secondary_host,

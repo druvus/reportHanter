@@ -56,11 +56,64 @@ def test_generate_report_has_header_and_tabs(full_report):
     assert len(full_report.objects) >= 3
 
 
-def test_generate_report_tabs_have_seven_sections(full_report):
+def test_generate_report_tabs_have_eight_sections(full_report):
     import panel as pn
 
     tabs = next(o for o in full_report.objects if isinstance(o, pn.Tabs))
-    assert len(tabs) == 7
+    # Dashboard, Read statistics, Host alignment, Classification of reads,
+    # Assembly statistics, Assembly classification, Alignment coverage,
+    # Provenance.
+    assert len(tabs) == 8
+    assert list(tabs._names) == [
+        "Dashboard",
+        "Read statistics",
+        "Host alignment",
+        "Classification of reads",
+        "Assembly statistics",
+        "Assembly classification",
+        "Alignment coverage",
+        "Provenance",
+    ]
+
+
+def test_provenance_tab_renders_from_sidecar(generator, tmp_path):
+    import json
+
+    import panel as pn
+
+    sidecar = tmp_path / "run_provenance_batch.json"
+    sidecar.write_text(
+        json.dumps(
+            {
+                "run_name": "batch",
+                "databases": [
+                    {
+                        "key": "CHECKV_DB",
+                        "path": "checkv/checkv-db-v1.5",
+                        "identity": "checkv-db-v1.5",
+                        "date": "2024-01-10",
+                    }
+                ],
+                "software_headline": {"fastp": "0.24.0"},
+            }
+        )
+    )
+    report = generator.generate_report(
+        blastn_files=[str(FIXTURES / "blastn.csv")],
+        kraken_file=str(FIXTURES / "kraken.tsv"),
+        kaiju_table=str(FIXTURES / "kaiju.tsv"),
+        fastp_json=str(FIXTURES / "fastp.json"),
+        flagstat_file=str(FIXTURES / "flagstat.txt"),
+        mosdepth_regions=str(FIXTURES / "mosdepth_regions.bed.gz"),
+        provenance_file=str(sidecar),
+        sample_name="pytest_sample",
+    )
+    tabs = next(o for o in report.objects if isinstance(o, pn.Tabs))
+    prov_tab = tabs[list(tabs._names).index("Provenance")]
+    # With a sidecar the section renders header + three labelled tables
+    # (run / databases / software), not the single "not recorded" note.
+    assert isinstance(prov_tab, pn.Column)
+    assert len(prov_tab.objects) >= 4
 
 
 # ---------------------------------------------------------------------------

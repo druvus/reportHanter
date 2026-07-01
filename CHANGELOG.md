@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-07-01
+
+Provenance surface. Records which reference databases and application
+versions produced a report. Both public surfaces (`create_report`,
+`ReportGenerator`) are preserved; the flag and tab are optional and the
+report degrades to a "not recorded" note when no sidecar is supplied.
+
+### Added
+- New optional `--provenance_file` CLI flag (and matching
+  `create_report(provenance_file=...)` / `generate_report(...)`
+  parameter) accepting virusHanter2's `run_provenance_<batch>.json`.
+- New `Provenance` report tab (`ProvenanceSection`) listing the run
+  scalars, the reference database snapshots (build identity, not a bare
+  mtime) and the resolved tool versions. Paths are shown as
+  `folder/file` only, never absolute.
+- New `ProvenanceProcessor` (exported) that parses the sidecar into
+  run / database / software tables.
+
 ## [0.9.0] - 2026-06-04
 
 Robustness and quality hardening. Both public surfaces
