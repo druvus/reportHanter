@@ -86,9 +86,8 @@ field) for audit but are hidden from the rendered HTML.
 
 - Python 3.12+
 - Runtime dependencies (declared in
-  [`pyproject.toml`](pyproject.toml)): `pandas>=2,<3`,
-  `numpy>=1.24`, `altair>=6,<7`, `panel>=1.3,<2`, `pyfastx>=2,<3`,
-  `pyarrow`.
+  [`pyproject.toml`](pyproject.toml)): `pandas>=3`, `numpy>=2`,
+  `altair>=6,<7`, `panel>=1.3,<2`, `pyfastx>=2,<3`.
 
 The output HTML is self-contained — no servers, no JavaScript
 CDN calls at view time.
