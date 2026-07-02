@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-07-02
+
+Robustness for samples with zero reads reaching classification (an
+all-host sample, or fastp dropping every read). Backward compatible.
+
+### Changed
+- The Kraken and Kaiju inputs may now be **empty**: `KrakenProcessor` and
+  `KaijuProcessor` tolerate a 0-byte file and return an empty frame
+  carrying the expected columns, and `core.validation` moves Kraken/Kaiju
+  from required-non-empty to exist-but-may-be-empty (FastP, Flagstat and
+  Mosdepth stay required non-empty). The report then renders with empty
+  Classification charts instead of failing. Trade-off: a genuinely
+  truncated Kraken/Kaiju file now renders an empty report rather than
+  being rejected at validation.
+
 ## [0.10.0] - 2026-07-01
 
 Provenance surface. Records which reference databases and application

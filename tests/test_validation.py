@@ -88,13 +88,46 @@ def test_no_blast_files_raises():
 
 
 def test_empty_required_file_raises(tmp_path):
-    """A zero-byte required file is rejected."""
-    empty_kraken = tmp_path / "empty_kraken.tsv"
-    empty_kraken.touch()
+    """A zero-byte still-required file (FastP) is rejected."""
+    empty_fastp = tmp_path / "empty_fastp.json"
+    empty_fastp.touch()
 
     with pytest.raises(ConfigurationError):
         validate_report_inputs(
-            kraken_file=str(empty_kraken),
+            kraken_file=str(FIXTURES / "kraken.tsv"),
+            kaiju_table=str(FIXTURES / "kaiju.tsv"),
+            fastp_json=str(empty_fastp),
+            flagstat_file=str(FIXTURES / "flagstat.txt"),
+            mosdepth_regions=str(FIXTURES / "mosdepth_regions.bed.gz"),
+            blastn_files=[str(FIXTURES / "blastn.csv")],
+        )
+
+
+def test_empty_kraken_and_kaiju_are_tolerated(tmp_path):
+    """Zero-byte Kraken/Kaiju reports pass validation (zero reads reaching
+    classification): the report renders with empty Classification charts."""
+    empty_kraken = tmp_path / "empty_kraken.tsv"
+    empty_kraken.touch()
+    empty_kaiju = tmp_path / "empty_kaiju.tsv"
+    empty_kaiju.touch()
+
+    # Must not raise.
+    validate_report_inputs(
+        kraken_file=str(empty_kraken),
+        kaiju_table=str(empty_kaiju),
+        fastp_json=str(FIXTURES / "fastp.json"),
+        flagstat_file=str(FIXTURES / "flagstat.txt"),
+        mosdepth_regions=str(FIXTURES / "mosdepth_regions.bed.gz"),
+        blastn_files=[str(FIXTURES / "blastn.csv")],
+    )
+
+
+def test_missing_kraken_still_raises(tmp_path):
+    """Tolerating *empty* does not tolerate *missing*: a non-existent
+    Kraken file is still a validation error."""
+    with pytest.raises(ConfigurationError):
+        validate_report_inputs(
+            kraken_file=str(tmp_path / "absent_kraken.tsv"),
             kaiju_table=str(FIXTURES / "kaiju.tsv"),
             fastp_json=str(FIXTURES / "fastp.json"),
             flagstat_file=str(FIXTURES / "flagstat.txt"),

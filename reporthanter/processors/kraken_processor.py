@@ -27,9 +27,43 @@ class KrakenProcessor(BaseDataProcessor):
         "species": "S",
     }
 
+    @staticmethod
+    def _empty_frame() -> pd.DataFrame:
+        """An empty Kraken frame with the raw six columns plus the derived
+        ``domain``, and -- crucially -- the numeric columns typed as
+        numeric. A sample with zero reads reaching classification yields
+        this; leaving ``percent`` as object dtype would make the
+        Dashboard's ``(percent * 100).round(2)`` raise on pandas 2.x.
+        """
+        return pd.DataFrame(
+            {
+                "percent": pd.Series(dtype="float64"),
+                "count_clades": pd.Series(dtype="int64"),
+                "count": pd.Series(dtype="int64"),
+                "tax_lvl": pd.Series(dtype="object"),
+                "taxonomy_id": pd.Series(dtype="int64"),
+                "name": pd.Series(dtype="object"),
+                "domain": pd.Series(dtype="object"),
+            }
+        )
+
     def validate_input(self, file_path: str | Path) -> bool:
-        """Validate Kraken file format."""
-        super().validate_input(file_path)
+        """Validate Kraken file format.
+
+        An empty file is tolerated: a sample with zero reads reaching
+        classification can leave a 0-byte Kraken report, in which case
+        the report renders with empty Classification charts rather than
+        failing. Existence and regular-file checks still apply.
+        """
+        from ..core.exceptions import FileValidationError
+
+        fp = Path(file_path)
+        if not fp.exists():
+            raise FileValidationError(f"File does not exist: {file_path}")
+        if not fp.is_file():
+            raise FileValidationError(f"Path is not a file: {file_path}")
+        if fp.stat().st_size == 0:
+            return True
 
         # Check if it looks like a Kraken file
         try:
@@ -38,6 +72,8 @@ class KrakenProcessor(BaseDataProcessor):
                 raise DataProcessingError(
                     f"Expected 6 columns in Kraken file, got {test_df.shape[1]}"
                 )
+        except DataProcessingError:
+            raise
         except Exception as e:
             raise DataProcessingError(f"Invalid Kraken file format: {e}") from e
 
@@ -54,6 +90,9 @@ class KrakenProcessor(BaseDataProcessor):
         is unaffected because its only R1 row ("cellular organisms")
         is immediately overridden by the next D row (Bacteria).
         """
+        if Path(file_path).stat().st_size == 0:
+            return self._empty_frame()
+
         df = pd.read_csv(
             file_path,
             sep="\t",

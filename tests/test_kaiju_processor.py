@@ -11,6 +11,27 @@ from reporthanter.processors.kaiju_processor import KaijuProcessor
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def test_empty_kaiju_file_is_tolerated(tmp_path):
+    # A sample with zero reads reaching Kaiju can leave a 0-byte table;
+    # validate + process must not raise, and filter_data must return an
+    # empty frame + 0.0 so the Classification tab renders a placeholder.
+    empty = tmp_path / "empty.kaiju.tsv"
+    empty.touch()
+    proc = KaijuProcessor()
+
+    assert proc.validate_input(empty) is True
+    df = proc.process(str(empty))
+    assert df.empty
+    assert {"percent", "taxon_name"}.issubset(df.columns)
+    # `percent` must be numeric even when empty: the Dashboard does
+    # (percent * 100).round(2), which raises on an object dtype (pandas 2.x).
+    assert df["percent"].dtype.kind == "f"
+
+    filtered, unclassified_pct = proc.filter_data(df, cutoff=0.01, max_entries=10)
+    assert filtered.empty
+    assert unclassified_pct == 0.0
+
+
 def test_process_normalizes_percent_to_fraction():
     proc = KaijuProcessor()
     df = proc.process(str(FIXTURES / "kaiju.tsv"))

@@ -24,11 +24,24 @@ class TestKrakenProcessor:
         with pytest.raises(FileValidationError, match="File does not exist"):
             kraken_processor.validate_input("/nonexistent/file.tsv")
 
-    def test_validate_input_empty_file(self, kraken_processor, tmp_path):
+    def test_validate_input_empty_file_is_tolerated(self, kraken_processor, tmp_path):
+        # A 0-byte Kraken report (zero reads reaching classification) is
+        # allowed; process returns an empty frame carrying the schema so
+        # the Classification tab renders a placeholder.
         empty_file = tmp_path / "empty.tsv"
         empty_file.touch()
-        with pytest.raises(FileValidationError, match="File is empty"):
-            kraken_processor.validate_input(empty_file)
+        assert kraken_processor.validate_input(empty_file) is True
+
+        df = kraken_processor.process(empty_file)
+        assert df.empty
+        assert {"domain", "tax_lvl", "name", "percent"}.issubset(df.columns)
+        # `percent` must be numeric even when empty: the Dashboard does
+        # (percent * 100).round(2), which raises on object dtype (pandas 2.x).
+        assert df["percent"].dtype.kind == "f"
+
+        filtered, unclassified_pct = kraken_processor.filter_data(df, level="species")
+        assert filtered.empty
+        assert unclassified_pct == 0.0
 
     def test_validate_input_valid_kraken_file(self, kraken_processor, tmp_path):
         kraken_file = tmp_path / "ok.tsv"
