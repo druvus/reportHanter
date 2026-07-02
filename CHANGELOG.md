@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-07-02
+
+### Changed
+- Require **pandas >= 3** (was `>=2.0,<3`). This removes the 2.x/3.x
+  split where CI resolved pandas 2.x while development used 3.x, which
+  masked a dtype-reduction difference (an object-dtype empty column that
+  `.round()` tolerates on 3.x but rejects on 2.x). One pandas major
+  across development, CI and production.
+
 ## [0.10.1] - 2026-07-02
 
 Robustness for samples with zero reads reaching classification (an

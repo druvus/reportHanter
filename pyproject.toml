@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reporthanter"
-version = "0.10.1"
+version = "0.10.2"
 description = "An interactive HTML report generator for sequence classification analyses."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -22,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "pandas>=2.0,<3",
+    "pandas>=3",
     "numpy>=1.24",
     "altair>=6.0,<7",
     "panel>=1.3,<2",
