@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.3] - 2026-07-02
+
+### Changed
+- Move the numpy floor to the numpy 2 generation (`numpy>=2`, was
+  `>=1.24`), matching the `pandas>=3` requirement. The altair / panel /
+  pyfastx ranges already float to the current latest (their major caps
+  do not block it), so they are unchanged. reportHanter is pip-installed,
+  so its dependencies resolve to the latest release from the index at
+  install time.
+
 ## [0.10.2] - 2026-07-02
 
 ### Changed
