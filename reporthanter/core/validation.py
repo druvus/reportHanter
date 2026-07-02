@@ -57,16 +57,18 @@ def validate_report_inputs(
     file raises :exc:`~reporthanter.core.exceptions.ConfigurationError`
     with a clear message naming the offending path:
 
-    * Kraken TSV (required, non-empty)
-    * Kaiju TSV (required, non-empty)
     * FastP JSON (required, non-empty)
     * Flagstat file (required, non-empty)
     * Mosdepth regions BED/BED.GZ (required, non-empty)
 
-    BLAST CSVs are the one exception: an empty CSV simply indicates that
-    the upstream assembler produced no contigs for this sample.  The
-    report still renders with an empty contig table.  At least one BLAST
-    path must be supplied, but the file itself may be zero bytes.
+    The Kraken TSV, Kaiju TSV and BLAST CSVs must exist but may be
+    empty. A sample with zero reads reaching classification can leave a
+    0-byte Kraken/Kaiju report, and an empty BLAST CSV simply means the
+    assembler produced no contigs; in all three cases the report still
+    renders (with empty Classification / contig charts) rather than
+    failing. At least one BLAST path must be supplied. Trade-off: a
+    genuinely truncated Kraken/Kaiju file now renders an empty report
+    instead of being rejected here.
 
     Optional inputs (secondary flagstat, virus names TSV, QUAST reports,
     geNomad summaries) are checked for existence and non-empty size only
@@ -81,13 +83,16 @@ def validate_report_inputs(
 
     # Required singleton inputs (non-empty).
     for name, path in (
-        ("Kraken file", kraken_file),
-        ("Kaiju table", kaiju_table),
         ("FastP JSON", fastp_json),
         ("Flagstat file", flagstat_file),
         ("Mosdepth regions file", mosdepth_regions),
     ):
         errors.extend(_check_file(name, path))
+
+    # Kraken / Kaiju: must exist, but may be empty (zero reads reaching
+    # classification). The processors render empty Classification charts.
+    for name, path in (("Kraken file", kraken_file), ("Kaiju table", kaiju_table)):
+        errors.extend(_check_file(name, path, require_nonempty=False))
 
     # BLAST CSVs: at least one required; empty files are tolerated.
     blast_paths = list(blastn_files or [])

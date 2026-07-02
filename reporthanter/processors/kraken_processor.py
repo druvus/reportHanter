@@ -27,9 +27,36 @@ class KrakenProcessor(BaseDataProcessor):
         "species": "S",
     }
 
+    # Columns of an empty Kraken frame (raw six plus the derived domain),
+    # so downstream filters that reference `domain` / `tax_lvl` do not
+    # KeyError when a sample had zero reads reaching classification.
+    _EMPTY_COLUMNS = [
+        "percent",
+        "count_clades",
+        "count",
+        "tax_lvl",
+        "taxonomy_id",
+        "name",
+        "domain",
+    ]
+
     def validate_input(self, file_path: str | Path) -> bool:
-        """Validate Kraken file format."""
-        super().validate_input(file_path)
+        """Validate Kraken file format.
+
+        An empty file is tolerated: a sample with zero reads reaching
+        classification can leave a 0-byte Kraken report, in which case
+        the report renders with empty Classification charts rather than
+        failing. Existence and regular-file checks still apply.
+        """
+        from ..core.exceptions import FileValidationError
+
+        fp = Path(file_path)
+        if not fp.exists():
+            raise FileValidationError(f"File does not exist: {file_path}")
+        if not fp.is_file():
+            raise FileValidationError(f"Path is not a file: {file_path}")
+        if fp.stat().st_size == 0:
+            return True
 
         # Check if it looks like a Kraken file
         try:
@@ -38,6 +65,8 @@ class KrakenProcessor(BaseDataProcessor):
                 raise DataProcessingError(
                     f"Expected 6 columns in Kraken file, got {test_df.shape[1]}"
                 )
+        except DataProcessingError:
+            raise
         except Exception as e:
             raise DataProcessingError(f"Invalid Kraken file format: {e}") from e
 
@@ -54,6 +83,9 @@ class KrakenProcessor(BaseDataProcessor):
         is unaffected because its only R1 row ("cellular organisms")
         is immediately overridden by the next D row (Bacteria).
         """
+        if Path(file_path).stat().st_size == 0:
+            return pd.DataFrame(columns=self._EMPTY_COLUMNS)
+
         df = pd.read_csv(
             file_path,
             sep="\t",

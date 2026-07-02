@@ -76,6 +76,33 @@ def test_generate_report_tabs_have_eight_sections(full_report):
     ]
 
 
+def test_report_renders_with_empty_kraken_kaiju_blast(generator, tmp_path):
+    # A sample with zero reads reaching classification: 0-byte Kraken and
+    # Kaiju reports and an empty BLAST CSV. The whole report must still
+    # render (placeholders), not crash -- the "finish with an empty
+    # report" contract.
+    empty_kraken = tmp_path / "empty_kraken.tsv"
+    empty_kraken.touch()
+    empty_kaiju = tmp_path / "empty_kaiju.tsv"
+    empty_kaiju.touch()
+    empty_blast = tmp_path / "empty_blast.csv"
+    empty_blast.touch()
+
+    report = generator.generate_report(
+        blastn_files=[str(empty_blast)],
+        kraken_file=str(empty_kraken),
+        kaiju_table=str(empty_kaiju),
+        fastp_json=str(FIXTURES / "fastp.json"),
+        flagstat_file=str(FIXTURES / "flagstat.txt"),
+        mosdepth_regions=str(FIXTURES / "mosdepth_regions.bed.gz"),
+        sample_name="all_host_sample",
+    )
+    output = tmp_path / "empty_report.html"
+    generator.save_report(report, output, title="empty")
+    assert output.exists()
+    assert output.stat().st_size > 10_000
+
+
 def test_provenance_tab_renders_from_sidecar(generator, tmp_path):
     import json
 

@@ -17,9 +17,28 @@ from ..core.palettes import TAXONOMY_COLORS
 class KaijuProcessor(BaseDataProcessor):
     """Processes Kaiju TSV files into standardized DataFrames."""
 
+    # Columns of an empty Kaiju frame, so the filter's `taxon_name` /
+    # `percent` access does not KeyError when a sample had zero reads
+    # reaching classification.
+    _EMPTY_COLUMNS = ["percent", "reads", "taxon_id", "taxon_name"]
+
     def validate_input(self, file_path: str | Path) -> bool:
-        """Validate Kaiju file format."""
-        super().validate_input(file_path)
+        """Validate Kaiju file format.
+
+        An empty file is tolerated: a sample with zero reads reaching
+        classification can leave a 0-byte Kaiju table, in which case the
+        report renders with empty Classification charts rather than
+        failing. Existence and regular-file checks still apply.
+        """
+        from ..core.exceptions import FileValidationError
+
+        fp = Path(file_path)
+        if not fp.exists():
+            raise FileValidationError(f"File does not exist: {file_path}")
+        if not fp.is_file():
+            raise FileValidationError(f"Path is not a file: {file_path}")
+        if fp.stat().st_size == 0:
+            return True
 
         # Check if it looks like a Kaiju file
         try:
@@ -28,6 +47,8 @@ class KaijuProcessor(BaseDataProcessor):
             if not required_columns.issubset(test_df.columns):
                 missing = required_columns - set(test_df.columns)
                 raise DataProcessingError(f"Missing required columns in Kaiju file: {missing}")
+        except DataProcessingError:
+            raise
         except Exception as e:
             raise DataProcessingError(f"Invalid Kaiju file format: {e}") from e
 
@@ -40,6 +61,9 @@ class KaijuProcessor(BaseDataProcessor):
         alongside the canonicalised ``taxon_name`` so they cannot
         leak through the Vega data embed into the rendered HTML.
         """
+        if Path(file_path).stat().st_size == 0:
+            return pd.DataFrame(columns=self._EMPTY_COLUMNS)
+
         df = pd.read_csv(file_path, sep="\t")
         drop = [c for c in df.columns if c.endswith("_raw")]
         if drop:
