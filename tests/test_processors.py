@@ -35,6 +35,9 @@ class TestKrakenProcessor:
         df = kraken_processor.process(empty_file)
         assert df.empty
         assert {"domain", "tax_lvl", "name", "percent"}.issubset(df.columns)
+        # `percent` must be numeric even when empty: the Dashboard does
+        # (percent * 100).round(2), which raises on object dtype (pandas 2.x).
+        assert df["percent"].dtype.kind == "f"
 
         filtered, unclassified_pct = kraken_processor.filter_data(df, level="species")
         assert filtered.empty

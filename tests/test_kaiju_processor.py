@@ -23,6 +23,9 @@ def test_empty_kaiju_file_is_tolerated(tmp_path):
     df = proc.process(str(empty))
     assert df.empty
     assert {"percent", "taxon_name"}.issubset(df.columns)
+    # `percent` must be numeric even when empty: the Dashboard does
+    # (percent * 100).round(2), which raises on an object dtype (pandas 2.x).
+    assert df["percent"].dtype.kind == "f"
 
     filtered, unclassified_pct = proc.filter_data(df, cutoff=0.01, max_entries=10)
     assert filtered.empty

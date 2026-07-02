@@ -27,18 +27,25 @@ class KrakenProcessor(BaseDataProcessor):
         "species": "S",
     }
 
-    # Columns of an empty Kraken frame (raw six plus the derived domain),
-    # so downstream filters that reference `domain` / `tax_lvl` do not
-    # KeyError when a sample had zero reads reaching classification.
-    _EMPTY_COLUMNS = [
-        "percent",
-        "count_clades",
-        "count",
-        "tax_lvl",
-        "taxonomy_id",
-        "name",
-        "domain",
-    ]
+    @staticmethod
+    def _empty_frame() -> pd.DataFrame:
+        """An empty Kraken frame with the raw six columns plus the derived
+        ``domain``, and -- crucially -- the numeric columns typed as
+        numeric. A sample with zero reads reaching classification yields
+        this; leaving ``percent`` as object dtype would make the
+        Dashboard's ``(percent * 100).round(2)`` raise on pandas 2.x.
+        """
+        return pd.DataFrame(
+            {
+                "percent": pd.Series(dtype="float64"),
+                "count_clades": pd.Series(dtype="int64"),
+                "count": pd.Series(dtype="int64"),
+                "tax_lvl": pd.Series(dtype="object"),
+                "taxonomy_id": pd.Series(dtype="int64"),
+                "name": pd.Series(dtype="object"),
+                "domain": pd.Series(dtype="object"),
+            }
+        )
 
     def validate_input(self, file_path: str | Path) -> bool:
         """Validate Kraken file format.
@@ -84,7 +91,7 @@ class KrakenProcessor(BaseDataProcessor):
         is immediately overridden by the next D row (Bacteria).
         """
         if Path(file_path).stat().st_size == 0:
-            return pd.DataFrame(columns=self._EMPTY_COLUMNS)
+            return self._empty_frame()
 
         df = pd.read_csv(
             file_path,

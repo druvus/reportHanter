@@ -17,10 +17,21 @@ from ..core.palettes import TAXONOMY_COLORS
 class KaijuProcessor(BaseDataProcessor):
     """Processes Kaiju TSV files into standardized DataFrames."""
 
-    # Columns of an empty Kaiju frame, so the filter's `taxon_name` /
-    # `percent` access does not KeyError when a sample had zero reads
-    # reaching classification.
-    _EMPTY_COLUMNS = ["percent", "reads", "taxon_id", "taxon_name"]
+    @staticmethod
+    def _empty_frame() -> pd.DataFrame:
+        """An empty Kaiju frame with the expected columns and numeric
+        columns typed as numeric. Leaving ``percent`` as object dtype
+        would make the Dashboard's ``(percent * 100).round(2)`` raise on
+        pandas 2.x for a sample with zero reads reaching classification.
+        """
+        return pd.DataFrame(
+            {
+                "percent": pd.Series(dtype="float64"),
+                "reads": pd.Series(dtype="int64"),
+                "taxon_id": pd.Series(dtype="float64"),
+                "taxon_name": pd.Series(dtype="object"),
+            }
+        )
 
     def validate_input(self, file_path: str | Path) -> bool:
         """Validate Kaiju file format.
@@ -62,7 +73,7 @@ class KaijuProcessor(BaseDataProcessor):
         leak through the Vega data embed into the rendered HTML.
         """
         if Path(file_path).stat().st_size == 0:
-            return pd.DataFrame(columns=self._EMPTY_COLUMNS)
+            return self._empty_frame()
 
         df = pd.read_csv(file_path, sep="\t")
         drop = [c for c in df.columns if c.endswith("_raw")]
