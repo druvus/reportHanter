@@ -103,7 +103,12 @@ class FastpProcessor(BaseDataProcessor):
         gc_content = after.get("gc_content", 0) * 100
 
         # Filtering results
-        total_reads_before = before.get("total_reads", 1)  # Avoid division by zero
+        # Avoid division by zero. `.get(..., 1)` only defends against a
+        # missing key; a sample with no surviving reads carries an
+        # explicit "total_reads": 0, so fall back to 1 whenever the value
+        # is absent or zero. The numerators are then all zero, giving a
+        # sensible 0.0% for every filter category.
+        total_reads_before = before.get("total_reads", 0) or 1
         passed = filtering.get("passed_filter_reads", 0)
         low_quality = filtering.get("low_quality_reads", 0)
         too_many_N = filtering.get("too_many_N_reads", 0)

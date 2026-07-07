@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.4] - 2026-07-07
+
+### Fixed
+- `FastpProcessor` no longer divides by zero on a sample with no
+  surviving reads. fastp writes an explicit `"total_reads": 0` in that
+  case, which the `.get(..., 1)` default did not guard against; the
+  filter-percentage rows now report 0.0% rather than crashing the whole
+  report. This is the read-statistics half of the empty-sample
+  robustness class.
+
 ## [0.10.3] - 2026-07-02
 
 ### Changed

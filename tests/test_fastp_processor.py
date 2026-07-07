@@ -103,3 +103,31 @@ def test_process_raises_on_missing_filtering_result(tmp_path):
     proc = FastpProcessor()
     with pytest.raises(ReportHanterError, match="filtering_result"):
         proc._process_file(bad)
+
+
+def test_process_handles_zero_reads(tmp_path):
+    """A sample with no surviving reads carries "total_reads": 0 in
+    before_filtering; the filter-percentage divisions must not crash."""
+    empty = tmp_path / "empty_sample.json"
+    empty.write_text(
+        json.dumps(
+            {
+                "summary": {
+                    "fastp_version": "0.23.4",
+                    "before_filtering": {"total_reads": 0},
+                    "after_filtering": {"total_reads": 0},
+                },
+                "filtering_result": {
+                    "passed_filter_reads": 0,
+                    "low_quality_reads": 0,
+                    "too_many_N_reads": 0,
+                    "too_short_reads": 0,
+                },
+            }
+        )
+    )
+    proc = FastpProcessor()
+    df = proc.process(str(empty))
+    metrics = dict(zip(df["Metric"], df["Value"], strict=False))
+    assert "0.0%" in metrics["reads passed filters"]
+    assert "0.0 K" in metrics["total reads"]
